@@ -851,7 +851,7 @@ class FloatingText {
 
 // Start Game
 window.onload = () => {
-    new Game();
+    window.game = new Game();
 };
 
 class HighScoreManager {

@@ -321,3 +321,36 @@ canvas {
     box-shadow: 0 0 20px var(--neon-blue);
     background: #fff;
 }
+html, body {
+    touch-action: none; /* Prevent scrolling/zooming */
+    overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+    .mobile-start-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-top: 20px;
+        width: 100%;
+        align-items: center;
+    }
+    
+    .mobile-start-buttons button {
+        background: var(--neon-blue);
+        color: #000;
+        border: none;
+        padding: 15px 30px;
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 900;
+        font-size: 1.2rem;
+        width: 80%;
+        clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+    }
+
+    /* Make text instructions smaller on mobile to fit */
+    .controls-hint {
+        font-size: 1rem; 
+        flex-direction: column;
+    }
+}

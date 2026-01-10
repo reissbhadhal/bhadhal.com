@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Reiss's Invaders - Space Shooter Game</title>
 
     <!-- SEO Meta Tags -->
@@ -33,7 +33,7 @@
     <link rel="icon"
         href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👾</text></svg>">
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=1.1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap"
@@ -79,6 +79,12 @@
                 <p>PRESS <span class="blink">[3]</span> FOR CPU CO-OP</p>
                 <p>PRESS <span class="blink">[4]</span> FOR 3 PLAYERS</p>
             </div>
+
+            <div class="mobile-start-buttons" style="display:none;">
+                <button onclick="window.game.startGame(1)">1 PLAYER START</button>
+                <button onclick="window.game.startGame(2)">2 PLAYERS</button>
+            </div>
+
             <div class="controls-hint" style="flex-direction: column; gap: 10px;">
                 <div style="color: #00ffff">P1: ← → ↑ ↓ MOVE | SPACE SHOOT</div>
                 <div style="color: #ffaa00">P2: A D W S MOVE | F SHOOT</div>
@@ -112,7 +118,7 @@
         <button id="btnShoot" class="shoot-btn">🔥</button>
     </div>
 
-    <script src="game.js"></script>
+    <script src="game.js?v=1.1"></script>
 </body>
 
 </html>
