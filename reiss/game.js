@@ -7,6 +7,16 @@ const BULLET_SPEED = 15;
 const ENEMY_SPEED = 1;
 const ENEMY_DROP_DISTANCE = 20;
 
+const BG_GRADIENTS = [
+    'radial-gradient(circle at center, #1a1a2e 0%, #050510 100%)', // Lvl 1: Deep Blue
+    'radial-gradient(circle at center, #2e1a2e 0%, #100510 100%)', // Lvl 2: Purple Mist
+    'radial-gradient(circle at center, #2e1a1a 0%, #100505 100%)', // Lvl 3: Red Alert
+    'radial-gradient(circle at center, #1a2e1a 0%, #051005 100%)', // Lvl 4: Toxic Green
+    'radial-gradient(circle at center, #2e2e1a 0%, #101005 100%)', // Lvl 5: Golden
+    'radial-gradient(circle at center, #1a2e2e 0%, #051010 100%)', // Lvl 6: Cyan Deep
+    'radial-gradient(circle at center, #000000 0%, #1a1a1a 100%)', // Lvl 7: Void
+];
+
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -46,8 +56,60 @@ class Game {
     }
 
     setupInput() {
-        // Removed generic handleStart click for now to force key choice or add buttons later
-        // Keeping click for restart/gameover
+        // Mobile Controls
+        const bindTouch = (id, key) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // Prevent scroll/zoom
+                this.keys[key] = true;
+                if (key === 'Space' && this.state === 'PLAYING') {
+                    // Handle shoot trigger immediately like keydown
+                    this.players.forEach(p => p.handleShoot('Space'));
+                }
+                // Handle Start Screen taps
+                if (this.state === 'GAMEOVER') {
+                    this.resetGame();
+                }
+            });
+
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                this.keys[key] = false;
+            });
+        };
+
+        bindTouch('btnUp', 'ArrowUp');
+        bindTouch('btnDown', 'ArrowDown');
+        bindTouch('btnLeft', 'ArrowLeft');
+        bindTouch('btnRight', 'ArrowRight');
+        bindTouch('btnShoot', 'Space');
+
+        // Allow tapping Start Screen options
+        // We can't confuse this with game controls, so maybe just make the start screen text clickable?
+        // Or adding a simple tap listener to the start screen itself
+        this.startScreen.addEventListener('touchstart', (e) => {
+            // For now just start 1 player game on tap if nothing else
+            // Or maybe we should add buttons to the start screen?
+            // Let's rely on standard keys for now or make the [1] [2] spans clickable
+            if (this.state === 'START') {
+                // Simple hack: if they touch the controls, it does nothing unless game started
+                // But wait, they need to START the game. 
+                // Let's add click listeners to the start options in index.html later?
+                // For now, let's map 'Shoot' button to Start Game (1 Player) if in Start Screen
+                if (this.keys['Space']) this.startGame(1);
+            }
+        });
+
+        // Add specific listener for Shoot button to start game
+        const btnShoot = document.getElementById('btnShoot');
+        if (btnShoot) {
+            btnShoot.addEventListener('touchstart', (e) => {
+                if (this.state === 'START') this.startGame(1);
+            });
+        }
+
 
         window.addEventListener('keydown', (e) => {
             this.keys[e.code] = true;
@@ -81,6 +143,7 @@ class Game {
         this.gameTime = 180; // 180 seconds
         this.lastTime = Date.now();
         this.spawnEntities();
+        this.updateLevelBackground();
         this.updateHUD();
     }
 
@@ -188,7 +251,16 @@ class Game {
             this.level++;
             this.gameTime = 180; // Reset timer for new level
             this.spawnEntities();
+            this.updateLevelBackground();
             this.updateHUD();
+        }
+    }
+
+    updateLevelBackground() {
+        const gameContainer = document.querySelector('.game-container');
+        if (gameContainer) {
+            const bgIndex = (this.level - 1) % BG_GRADIENTS.length;
+            gameContainer.style.background = BG_GRADIENTS[bgIndex];
         }
     }
 

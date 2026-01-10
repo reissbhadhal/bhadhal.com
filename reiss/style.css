@@ -161,3 +161,75 @@ canvas {
     -webkit-text-fill-color: var(--neon-red) !important;
     text-shadow: 0 0 20px var(--neon-red) !important;
 }
+
+/* Mobile Controls */
+.mobile-controls {
+    display: none;
+    /* Hidden by default */
+    position: fixed;
+    bottom: 20px;
+    left: 0;
+    width: 100%;
+    padding: 0 20px;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+    /* Let clicks pass through container */
+    z-index: 1000;
+}
+
+@media (max-width: 1024px) {
+    .mobile-controls {
+        display: flex;
+    }
+}
+
+.d-pad {
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.d-pad .horizontal {
+    display: flex;
+    gap: 10px;
+}
+
+.mobile-controls button {
+    background: rgba(0, 255, 255, 0.2);
+    border: 2px solid var(--neon-blue);
+    color: var(--neon-blue);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    touch-action: manipulation;
+    user-select: none;
+    cursor: pointer;
+    box-shadow: 0 0 10px var(--neon-blue);
+}
+
+.mobile-controls button:active {
+    background: var(--neon-blue);
+    color: #000;
+}
+
+.shoot-btn {
+    pointer-events: auto;
+    width: 80px !important;
+    height: 80px !important;
+    border-color: var(--neon-red) !important;
+    color: var(--neon-red) !important;
+    box-shadow: 0 0 10px var(--neon-red) !important;
+    font-size: 2rem !important;
+}
+
+.shoot-btn:active {
+    background: var(--neon-red) !important;
+    color: #fff !important;
+}
