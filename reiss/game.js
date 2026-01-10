@@ -46,6 +46,7 @@ class Game {
         this.enemyMoveTimer = 0;
         this.enemyMoveInterval = 50; // frames
 
+        this.highScoreManager = new HighScoreManager();
         this.init();
     }
 
@@ -140,7 +141,7 @@ class Game {
         this.startScreen.classList.add('hidden');
         this.gameOverScreen.classList.add('hidden');
         this.level = 1;
-        this.gameTime = 180; // 180 seconds
+        this.gameTime = 60; // 60 seconds (180 - 120)
         this.lastTime = Date.now();
         this.spawnEntities();
         this.updateLevelBackground();
@@ -164,6 +165,7 @@ class Game {
         this.bullets = [];
         this.enemies = [];
         this.particles = [];
+        this.floatingTexts = [];
 
         // Spawn Enemies
         const rows = 5;
@@ -210,6 +212,9 @@ class Game {
                 // If bullet goes off screen (and is player's), count as miss
                 if (!b.isEnemy && b.owner) {
                     b.owner.misses++;
+                    if (b.y < 0) {
+                        this.floatingTexts.push(new FloatingText(b.x, 30, "MISS", "#ff0000"));
+                    }
                 }
                 this.bullets.splice(i, 1);
             }
@@ -244,12 +249,18 @@ class Game {
             if (p.life <= 0) this.particles.splice(i, 1);
         });
 
+        // Floating Texts
+        this.floatingTexts.forEach((t, i) => {
+            t.update();
+            if (t.life <= 0) this.floatingTexts.splice(i, 1);
+        });
+
         this.checkCollisions();
 
         if (this.enemies.length === 0) {
             // Next Level
             this.level++;
-            this.gameTime = 180; // Reset timer for new level
+            this.gameTime = 60; // Reset timer for new level
             this.spawnEntities();
             this.updateLevelBackground();
             this.updateHUD();
@@ -285,6 +296,9 @@ class Game {
                         if (b.owner) {
                             b.owner.score += 100;
                             b.owner.hits++;
+
+                            // Floating text for HIT
+                            this.floatingTexts.push(new FloatingText(e.x, e.y, "HIT!", "#39ff14"));
 
                             // 10% chance to revive a dead teammate
                             if (Math.random() < 0.1) {
@@ -371,6 +385,10 @@ class Game {
             this.livesElement.innerText = "DEAD";
             this.scoreElement.innerText = scoreText + "  |  GAME OVER";
         }
+
+        if (this.timerElement) {
+            this.timerElement.innerText = Math.ceil(this.gameTime);
+        }
     }
 
     gameOver() {
@@ -420,6 +438,14 @@ class Game {
              </div>`;
         });
         this.statsElement.innerHTML = statsHtml;
+
+        // Save High Scores
+        this.players.forEach(p => {
+            if (p.score > 0) {
+                const name = p.isCpu ? "CPU COMMANDER" : `PLAYER ${p.id}`;
+                this.highScoreManager.saveScore(name, p.score);
+            }
+        });
     }
 
     createExplosion(x, y, color, count = 10) {
@@ -437,6 +463,7 @@ class Game {
             this.enemies.forEach(e => e.draw(this.ctx));
             this.bullets.forEach(b => b.draw(this.ctx));
             this.particles.forEach(p => p.draw(this.ctx));
+            this.floatingTexts.forEach(t => t.draw(this.ctx));
         }
     }
 
@@ -535,7 +562,8 @@ class Player {
         this.y += dir * PLAYER_SPEED;
         // Limit vertical movement to bottom half of screen
         const minY = CANVAS_HEIGHT / 2;
-        const maxY = CANVAS_HEIGHT - this.height - 10;
+        // Ensure player stays fully on screen with a buffer
+        const maxY = CANVAS_HEIGHT - this.height - 50;
         if (this.y < minY) this.y = minY;
         if (this.y > maxY) this.y = maxY;
     }
@@ -727,7 +755,64 @@ class Particle {
     }
 }
 
+class FloatingText {
+    constructor(x, y, text, color) {
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.color = color;
+        this.life = 60; // 1 second
+        this.velocity = -1; // float up
+    }
+
+    update() {
+        this.y += this.velocity;
+        this.life--;
+    }
+
+    draw(ctx) {
+        ctx.save();
+        ctx.fillStyle = this.color;
+        ctx.font = 'bold 16px "Orbitron"';
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 5;
+        ctx.globalAlpha = this.life / 60;
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+    }
+}
+
 // Start Game
 window.onload = () => {
     new Game();
 };
+
+class HighScoreManager {
+    constructor() {
+        this.scores = JSON.parse(localStorage.getItem('spaceInvadersScores')) || [
+            { name: "CPU COMMANDER", score: 5000 },
+            { name: "STAR FIGHTER", score: 3000 },
+            { name: "ROOKIE", score: 1000 }
+        ];
+        this.render();
+    }
+
+    saveScore(name, score) {
+        this.scores.push({ name, score });
+        this.scores.sort((a, b) => b.score - a.score);
+        this.scores = this.scores.slice(0, 5); // Keep top 5
+        localStorage.setItem('spaceInvadersScores', JSON.stringify(this.scores));
+        this.render();
+    }
+
+    render() {
+        const list = document.getElementById('scoreList');
+        if (!list) return;
+        list.innerHTML = this.scores.map((s, i) =>
+            `<li>
+                <span class="name">${i + 1}. ${s.name}</span>
+                <span class="score">${s.score}</span>
+            </li>`
+        ).join('');
+    }
+}

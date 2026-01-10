@@ -233,3 +233,44 @@ canvas {
     background: var(--neon-red) !important;
     color: #fff !important;
 }
+.high-scores {
+    margin-top: 30px;
+    width: 80%;
+    max-width: 400px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--neon-blue);
+    padding: 15px;
+    border-radius: 4px;
+}
+
+.high-scores h3 {
+    color: var(--neon-pink);
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+    text-shadow: 0 0 5px var(--neon-pink);
+    border-bottom: 1px solid rgba(255, 0, 255, 0.3);
+    padding-bottom: 5px;
+}
+
+#scoreList {
+    list-style: none;
+    padding: 0;
+    text-align: left;
+}
+
+#scoreList li {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1rem;
+    color: #fff;
+}
+
+#scoreList li span.name {
+    color: var(--neon-green);
+}
+
+#scoreList li span.score {
+    color: var(--neon-blue);
+}
