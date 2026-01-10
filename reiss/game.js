@@ -32,6 +32,7 @@ class Game {
         this.finalScoreElement = document.getElementById('finalScore');
         this.statsElement = document.getElementById('gameStats');
         this.loginScreen = document.getElementById('loginScreen');
+        this.loginUser = document.getElementById('loginUser');
         this.loginEmail = document.getElementById('loginEmail');
         this.loginPass = document.getElementById('loginPass');
         this.btnLogin = document.getElementById('btnLogin');
@@ -83,13 +84,12 @@ class Game {
         }
 
         const handleLogin = () => {
+            const username = this.loginUser.value.trim();
             const email = this.loginEmail.value.trim();
             const pass = this.loginPass.value.trim();
 
-            if (email && pass) {
-                // Extract name from email (before @) and uppercase it
-                const namePart = email.split('@')[0];
-                this.currentPlayerName = namePart.toUpperCase();
+            if (username && email && pass) {
+                this.currentPlayerName = username.toUpperCase();
 
                 // Save Session
                 localStorage.setItem('si_session', JSON.stringify({
