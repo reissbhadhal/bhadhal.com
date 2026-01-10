@@ -61,7 +61,17 @@
 
         <canvas id="gameCanvas"></canvas>
 
-        <div id="startScreen" class="overlay">
+        <div id="loginScreen" class="overlay">
+            <h1 style="font-size: 2.5rem; margin-bottom: 40px;">SECURITY CHECKPOINT</h1>
+            <div class="login-form">
+                <input type="email" id="loginEmail" placeholder="ENTER EMAIL ADDRESS" autocomplete="off">
+                <input type="password" id="loginPass" placeholder="ENTER ACCESS CODE">
+                <button id="btnLogin">INITIALIZE UPLINK</button>
+            </div>
+            <p style="margin-top: 20px; font-size: 0.8rem; color: var(--neon-red);" id="loginMsg"></p>
+        </div>
+
+        <div id="startScreen" class="overlay hidden">
             <h1>REISS'S SPACE INVADERS</h1>
             <div style="margin-bottom: 20px; font-size: 1.2rem;">
                 <p>PRESS <span class="blink">[1]</span> FOR 1 PLAYER</p>

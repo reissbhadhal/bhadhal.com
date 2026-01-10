@@ -31,12 +31,18 @@ class Game {
         this.gameOverScreen = document.getElementById('gameOverScreen');
         this.finalScoreElement = document.getElementById('finalScore');
         this.statsElement = document.getElementById('gameStats');
+        this.loginScreen = document.getElementById('loginScreen');
+        this.loginEmail = document.getElementById('loginEmail');
+        this.loginPass = document.getElementById('loginPass');
+        this.btnLogin = document.getElementById('btnLogin');
+        this.loginMsg = document.getElementById('loginMsg');
 
-        this.state = 'START'; // START, PLAYING, GAMEOVER
+        this.state = 'LOGIN'; // LOGIN, START, PLAYING, GAMEOVER
         // this.score = 0; // Score now per player
         // this.lives = 3; // Lives now tracked in Player class
         this.keys = {};
         this.numPlayers = 1;
+        this.currentPlayerName = "COMMANDER";
 
         this.players = [];
         this.bullets = [];
@@ -51,9 +57,48 @@ class Game {
     }
 
     init() {
+        this.setupLogin();
         this.setupInput();
         this.loop = this.loop.bind(this);
         requestAnimationFrame(this.loop);
+    }
+
+    setupLogin() {
+        if (!this.btnLogin) return;
+
+        const handleLogin = () => {
+            const email = this.loginEmail.value.trim();
+            const pass = this.loginPass.value.trim();
+
+            if (email && pass) {
+                // Extract name from email (before @) and uppercase it
+                const namePart = email.split('@')[0];
+                this.currentPlayerName = namePart.toUpperCase();
+
+                // Success Animation / Transition
+                this.loginMsg.style.color = '#39ff14';
+                this.loginMsg.innerText = "ACCESS GRANTED. WELCOME, " + this.currentPlayerName;
+
+                setTimeout(() => {
+                    this.state = 'START';
+                    this.loginScreen.classList.add('hidden');
+                    this.startScreen.classList.remove('hidden');
+                }, 1000);
+            } else {
+                this.loginMsg.style.color = 'var(--neon-red)';
+                this.loginMsg.innerText = "ACCESS DENIED. CREDENTIALS REQUIRED.";
+
+                // Shake effect
+                this.loginScreen.classList.add('shake');
+                setTimeout(() => this.loginScreen.classList.remove('shake'), 500);
+            }
+        };
+
+        this.btnLogin.addEventListener('click', handleLogin);
+        // Allow Enter key to login
+        this.loginPass.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleLogin();
+        });
     }
 
     setupInput() {
@@ -442,7 +487,7 @@ class Game {
         // Save High Scores
         this.players.forEach(p => {
             if (p.score > 0) {
-                const name = p.isCpu ? "CPU COMMANDER" : `PLAYER ${p.id}`;
+                const name = p.isCpu ? "CPU COMMANDER" : (p.id === 1 ? this.currentPlayerName : `PLAYER ${p.id}`);
                 this.highScoreManager.saveScore(name, p.score);
             }
         });

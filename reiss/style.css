@@ -274,3 +274,48 @@ canvas {
 #scoreList li span.score {
     color: var(--neon-blue);
 }
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 300px;
+}
+
+.login-form input {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--neon-blue);
+    color: var(--neon-blue);
+    padding: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.1rem;
+    text-align: center;
+    border-radius: 4px;
+    outline: none;
+    transition: all 0.3s;
+}
+
+.login-form input:focus {
+    box-shadow: 0 0 15px var(--neon-blue);
+    background: rgba(0, 255, 255, 0.1);
+}
+
+.login-form button {
+    background: var(--neon-blue);
+    color: #000;
+    border: none;
+    padding: 12px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 1.1rem;
+    cursor: pointer;
+    margin-top: 10px;
+    clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+    transition: all 0.2s;
+}
+
+.login-form button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px var(--neon-blue);
+    background: #fff;
+}
