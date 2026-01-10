@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bhadhal.com</title>
+    <meta name="description" content="Welcome to bhadhal.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050510;
+            --neon-blue: #00ffff;
+            --neon-pink: #ff00ff;
+            --text-color: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: radial-gradient(circle at center, #1a1a2e 0%, #050510 100%);
+            color: var(--text-color);
+            font-family: 'Share Tech Mono', monospace;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            padding: 40px;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3rem;
+            margin-bottom: 30px;
+            background: linear-gradient(to right, var(--neon-blue), var(--neon-pink));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        .game-link {
+            display: inline-block;
+            padding: 20px 40px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+            text-decoration: none;
+            color: var(--neon-blue);
+            border: 2px solid var(--neon-blue);
+            border-radius: 8px;
+            background: rgba(0, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+
+        .game-link:hover {
+            background: rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.5);
+            transform: scale(1.05);
+        }
+
+        .emoji {
+            font-size: 2rem;
+            margin-right: 10px;
+        }
+
+        /* Scanlines effect */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom,
+                    rgba(255, 255, 255, 0),
+                    rgba(255, 255, 255, 0) 50%,
+                    rgba(0, 0, 0, 0.2) 50%,
+                    rgba(0, 0, 0, 0.2));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 100;
+            animation: scanlineScroll 0.2s linear infinite;
+            mix-blend-mode: overlay;
+        }
+
+        @keyframes scanlineScroll {
+            0% {
+                transform: translateY(0);
+            }
+
+            100% {
+                transform: translateY(4px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="scanlines"></div>
+    <div class="container">
+        <h1>BHADHAL.COM</h1>
+        <a href="/reiss/" class="game-link">
+            <span class="emoji">👾</span>PLAY REISS'S INVADERS
+        </a>
+    </div>
+</body>
+
+</html>

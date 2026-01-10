@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reiss's Invaders - Space Shooter Game</title>
+
+    <!-- SEO Meta Tags -->
+    <meta name="description"
+        content="Play Reiss's Invaders - A retro-style multiplayer Space Invaders game. 1-3 players, arcade action, neon graphics!">
+    <meta name="keywords" content="space invaders, arcade game, retro game, multiplayer game, browser game">
+    <meta name="author" content="Reiss Bhadhal">
+
+    <!-- Open Graph / Social Sharing Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://bhadhal.com/reiss/">
+    <meta property="og:title" content="Reiss's Invaders - Space Shooter Game">
+    <meta property="og:description"
+        content="Play the classic arcade game remixed! 1-3 players, retro neon graphics, and endless alien waves. Can you survive?">
+    <meta property="og:image" content="https://bhadhal.com/reiss/social-preview.png">
+    <meta property="og:image:width" content="1024">
+    <meta property="og:image:height" content="1024">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Reiss's Invaders - Space Shooter Game">
+    <meta name="twitter:description"
+        content="Play the classic arcade game remixed! 1-3 players, retro neon graphics, and endless alien waves.">
+    <meta name="twitter:image" content="https://bhadhal.com/reiss/social-preview.png">
+
+    <!-- Favicon (optional - uses emoji as fallback) -->
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👾</text></svg>">
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="scanlines"></div>
+    <div class="game-container">
+        <header class="hud">
+            <div class="score-board">
+                <span class="label">SCORE</span>
+                <span id="score">000000</span>
+            </div>
+            <div class="title-display">REISS'S INVADERS</div>
+            <div class="lives-board">
+                <span class="label">LIVES</span>
+                <span id="lives">3</span>
+            </div>
+            <div class="time-board" style="text-align: right;">
+                <span class="label">TIME</span>
+                <span id="timer">180</span>
+            </div>
+        </header>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="startScreen" class="overlay">
+            <h1>REISS'S SPACE INVADERS</h1>
+            <div style="margin-bottom: 20px; font-size: 1.2rem;">
+                <p>PRESS <span class="blink">[1]</span> FOR 1 PLAYER</p>
+                <p>PRESS <span class="blink">[2]</span> FOR 2 PLAYERS</p>
+                <p>PRESS <span class="blink">[3]</span> FOR CPU CO-OP</p>
+                <p>PRESS <span class="blink">[4]</span> FOR 3 PLAYERS</p>
+            </div>
+            <div class="controls-hint" style="flex-direction: column; gap: 10px;">
+                <div style="color: #00ffff">P1: ← → ↑ ↓ MOVE | SPACE SHOOT</div>
+                <div style="color: #ffaa00">P2: A D W S MOVE | F SHOOT</div>
+                <div style="color: #39ff14">P3: V N G H MOVE | B SHOOT</div>
+            </div>
+        </div>
+
+        <div id="gameOverScreen" class="overlay hidden">
+            <h1 class="danger">GAME OVER</h1>
+            <p>FINAL SCORE: <span id="finalScore">0</span></p>
+            <div id="gameStats" style="margin: 15px 0; font-family: 'Share Tech Mono', monospace; font-size: 0.9rem;">
+            </div>
+            <p>CLICK OR PRESS <span class="blink">SPACE</span> TO RESTART</p>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+
+</html>
