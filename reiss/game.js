@@ -66,6 +66,22 @@ class Game {
     setupLogin() {
         if (!this.btnLogin) return;
 
+        // Check for existing session (24 hour validity)
+        const session = JSON.parse(localStorage.getItem('si_session'));
+        if (session) {
+            const now = Date.now();
+            const oneDay = 24 * 60 * 60 * 1000;
+
+            if (now - session.timestamp < oneDay) {
+                // Restore session
+                this.currentPlayerName = session.name;
+                this.state = 'START';
+                this.loginScreen.classList.add('hidden');
+                this.startScreen.classList.remove('hidden');
+                return; // Skip login setup
+            }
+        }
+
         const handleLogin = () => {
             const email = this.loginEmail.value.trim();
             const pass = this.loginPass.value.trim();
@@ -74,6 +90,12 @@ class Game {
                 // Extract name from email (before @) and uppercase it
                 const namePart = email.split('@')[0];
                 this.currentPlayerName = namePart.toUpperCase();
+
+                // Save Session
+                localStorage.setItem('si_session', JSON.stringify({
+                    timestamp: Date.now(),
+                    name: this.currentPlayerName
+                }));
 
                 // Success Animation / Transition
                 this.loginMsg.style.color = '#39ff14';
