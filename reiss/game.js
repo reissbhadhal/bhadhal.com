@@ -210,7 +210,7 @@ class Game {
         this.level = 1;
         this.gameTime = 60; // 60 seconds (180 - 120)
         this.lastTime = Date.now();
-        this.spawnEntities();
+        this.spawnEntities(true);
         this.updateLevelBackground();
         this.updateHUD();
     }
@@ -223,11 +223,15 @@ class Game {
         this.startScreen.classList.remove('hidden');
     }
 
-    spawnEntities() {
-        this.players = [];
-        for (let i = 1; i <= this.numPlayers; i++) {
-            const isCpu = (this.cpuEnabled && i === 2);
-            this.players.push(new Player(this, i, isCpu));
+    spawnEntities(resetPlayers = true) {
+        if (resetPlayers) {
+            this.players = [];
+            for (let i = 1; i <= this.numPlayers; i++) {
+                const isCpu = (this.cpuEnabled && i === 2);
+                this.players.push(new Player(this, i, isCpu));
+            }
+        } else {
+            this.players.forEach(p => p.resetPosition());
         }
         this.bullets = [];
         this.enemies = [];
@@ -328,7 +332,7 @@ class Game {
             // Next Level
             this.level++;
             this.gameTime = 60; // Reset timer for new level
-            this.spawnEntities();
+            this.spawnEntities(false); // Keep player stats
             this.updateLevelBackground();
             this.updateHUD();
         }
@@ -585,6 +589,27 @@ class Player {
             }
         }
 
+        this.y = CANVAS_HEIGHT - 50;
+    }
+
+    resetPosition() {
+        if (this.game.numPlayers === 1) {
+            this.x = CANVAS_WIDTH / 2 - this.width / 2;
+        } else if (this.game.numPlayers === 2) {
+            if (this.id === 1) {
+                this.x = CANVAS_WIDTH / 3 - this.width / 2;
+            } else {
+                this.x = (CANVAS_WIDTH / 3) * 2 - this.width / 2;
+            }
+        } else {
+            if (this.id === 1) {
+                this.x = CANVAS_WIDTH / 4 - this.width / 2;
+            } else if (this.id === 2) {
+                this.x = CANVAS_WIDTH / 2 - this.width / 2;
+            } else {
+                this.x = (CANVAS_WIDTH / 4) * 3 - this.width / 2;
+            }
+        }
         this.y = CANVAS_HEIGHT - 50;
     }
 
