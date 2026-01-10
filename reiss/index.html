@@ -119,7 +119,36 @@
         <button id="btnShoot" class="shoot-btn">🔥</button>
     </div>
 
-    <script src="game.js?v=1.2"></script>
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // TODO: PASTE YOUR FIREBASE CONFIG HERE
+        // 1. Go to console.firebase.google.com
+        // 2. Create Project -> Add Web App
+        // 3. Copy the 'firebaseConfig' object and paste it below replacing the empty object
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBEK728sxamdYrWyTmv-DacTEf5cs8Qfyc",
+            authDomain: "spaceinvaders-ace73.firebaseapp.com",
+            projectId: "spaceinvaders-ace73",
+            storageBucket: "spaceinvaders-ace73.firebasestorage.app",
+            messagingSenderId: "1055474779844",
+            appId: "1:1055474779844:web:5033a5fc644f2437deeb91",
+            measurementId: "G-L200ZZ9YXC"
+        };
+
+        // Initialize Firebase
+        if (firebaseConfig.apiKey) {
+            firebase.initializeApp(firebaseConfig);
+            window.db = firebase.firestore();
+            console.log("Firebase Initialized");
+        } else {
+            console.warn("Firebase Config missing! Leaderboard will be offline.");
+        }
+    </script>
+    <script src="game.js?v=1.3"></script>
 </body>
 
 </html>

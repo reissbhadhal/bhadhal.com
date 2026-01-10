@@ -881,30 +881,72 @@ window.onload = () => {
 
 class HighScoreManager {
     constructor() {
+        this.scores = [];
+        this.useCloud = !!window.db;
+        this.render();
+        this.loadScores();
+    }
+
+    async loadScores() {
+        if (this.useCloud) {
+            try {
+                const snapshot = await window.db.collection('scores')
+                    .orderBy('score', 'desc')
+                    .limit(5)
+                    .get();
+
+                this.scores = snapshot.docs.map(doc => doc.data());
+                this.render();
+            } catch (e) {
+                console.error("Error loading cloud scores:", e);
+                this.loadLocal(); // Fallback
+            }
+        } else {
+            this.loadLocal();
+        }
+    }
+
+    loadLocal() {
         this.scores = JSON.parse(localStorage.getItem('spaceInvadersScores')) || [
             { name: "CPU COMMANDER", score: 5000 },
-            { name: "STAR FIGHTER", score: 3000 },
+            { name: "ACE PILOT", score: 3000 },
             { name: "ROOKIE", score: 1000 }
         ];
         this.render();
     }
 
-    saveScore(name, score) {
-        this.scores.push({ name, score });
-        this.scores.sort((a, b) => b.score - a.score);
-        this.scores = this.scores.slice(0, 5); // Keep top 5
-        localStorage.setItem('spaceInvadersScores', JSON.stringify(this.scores));
-        this.render();
+    async saveScore(name, score) {
+        const newEntry = { name, score, date: Date.now() };
+
+        if (this.useCloud) {
+            try {
+                await window.db.collection('scores').add(newEntry);
+                await this.loadScores(); // Refresh
+            } catch (e) {
+                console.error("Error saving to cloud:", e);
+            }
+        } else {
+            this.scores.push(newEntry);
+            this.scores.sort((a, b) => b.score - a.score);
+            this.scores = this.scores.slice(0, 5);
+            localStorage.setItem('spaceInvadersScores', JSON.stringify(this.scores));
+            this.render();
+        }
     }
 
     render() {
         const list = document.getElementById('scoreList');
         if (!list) return;
-        list.innerHTML = this.scores.map((s, i) =>
-            `<li>
-                <span class="name">${i + 1}. ${s.name}</span>
-                <span class="score">${s.score}</span>
-            </li>`
-        ).join('');
+
+        list.innerHTML = this.scores
+            .map((s, i) => `
+                <li>
+                    <span class="rank">#${i + 1}</span>
+                    <span class="name">${s.name}</span>
+                    <span class="score">${s.score ? s.score.toLocaleString() : 0}</span>
+                </li>
+            `)
+            .join('');
     }
 }
+
