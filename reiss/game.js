@@ -1,4 +1,6 @@
 // Constants
+
+        // Constants
 const CANVAS_WIDTH = 600;
 const CANVAS_HEIGHT = 800;
 const PLAYER_SPEED = 10;
@@ -19,6 +21,458 @@ const BG_GRADIENTS = [
     'radial-gradient(circle, #5f2c82, #49a09d)', // Lvl 11: Aurora (Green/Pink)
     'linear-gradient(to bottom, #000000, #434343)', // Lvl 12: Event Horizon (Pitch Black)
 ];
+// ----------------------
+// HELPER CLASSES
+// ----------------------
+class HighScoreManager {
+    constructor() {
+        this.scores = [];
+        this.useCloud = !!window.db;
+        this.render();
+        this.loadScores();
+    }
+    async loadScores() {
+        const statusEl = document.getElementById('connectionStatus');
+        if (this.useCloud) {
+            try {
+                if (statusEl) {
+                    statusEl.innerText = "📡 SECTOR DATALINK: ESTABLISHED";
+                    statusEl.style.color = "#39ff14";
+                }
+                const snapshot = await window.db.collection('scores')
+                    .orderBy('score', 'desc')
+                    .limit(5)
+                    .get();
+                this.scores = snapshot.docs.map(doc => doc.data());
+                this.render();
+            } catch (e) {
+                console.error("Error loading cloud scores:", e);
+                if (statusEl) {
+                    statusEl.innerText = "⚠️ DATALINK ERROR: OFFLINE MODE";
+                    statusEl.style.color = "var(--neon-red)";
+                }
+                this.loadLocal(); // Fallback
+            }
+        } else {
+            console.warn("Cloud DB not found in window.db");
+            if (statusEl) statusEl.innerText = "⚠️ NO LINK: LOCAL MODE ONLY";
+            this.loadLocal();
+        }
+    }
+    loadLocal() {
+        this.scores = JSON.parse(localStorage.getItem('spaceInvadersScores')) || [
+            { name: "CPU COMMANDER", score: 5000 },
+            { name: "ACE PILOT", score: 3000 },
+            { name: "ROOKIE", score: 1000 }
+        ];
+        this.render();
+    }
+    async saveScore(name, score) {
+        if (this.useCloud) {
+            try {
+                const scoresRef = window.db.collection('scores');
+                const query = await scoresRef.where('name', '==', name).get();
+                if (!query.empty) {
+                    // User exists, check if new score is higher
+                    const doc = query.docs[0];
+                    const data = doc.data();
+                    if (score > data.score) {
+                        await scoresRef.doc(doc.id).update({ score: score, date: Date.now() });
+                    }
+                } else {
+                    // New user
+                    await scoresRef.add({ name, score, date: Date.now() });
+                }
+                await this.loadScores(); // Refresh
+            } catch (e) {
+                console.error("Error saving to cloud:", e);
+            }
+        } else {
+            // Local fallback logic (simple)
+            const existingIndex = this.scores.findIndex(s => s.name === name);
+            if (existingIndex !== -1) {
+                if (score > this.scores[existingIndex].score) {
+                    this.scores[existingIndex].score = score;
+                }
+            } else {
+                this.scores.push({ name, score, date: Date.now() });
+            }
+            this.scores.sort((a, b) => b.score - a.score);
+            this.scores = this.scores.slice(0, 5);
+            localStorage.setItem('spaceInvadersScores', JSON.stringify(this.scores));
+            this.render();
+        }
+    }
+    render() {
+        const list = document.getElementById('scoreList');
+        if (!list) return;
+        list.innerHTML = this.scores
+            .map((s, i) => `
+                <li>
+                    <span class="rank">#${i + 1}</span>
+                    <span class="name">${s.name}</span>
+                    <span class="score">${s.score ? s.score.toLocaleString() : 0}</span>
+                </li>
+            `)
+            .join('');
+    }
+}
+class FloatingText {
+    constructor(x, y, text, color) {
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.color = color;
+        this.life = 60; // 1 second
+        this.velocity = -1; // float up
+    }
+    update() {
+        this.y += this.velocity;
+        this.life--;
+    }
+    draw(ctx) {
+        ctx.save();
+        ctx.fillStyle = this.color;
+        ctx.font = 'bold 16px "Orbitron"';
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 5;
+        ctx.globalAlpha = this.life / 60;
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+    }
+}
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.size = Math.random() * 3 + 1;
+        this.speedX = Math.random() * 4 - 2;
+        this.speedY = Math.random() * 4 - 2;
+        this.color = color;
+        this.life = 100;
+    }
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.life -= 2;
+        this.size *= 0.95;
+    }
+    draw(ctx) {
+        ctx.fillStyle = this.color;
+        ctx.globalAlpha = this.life / 100;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+}
+class Bullet {
+    constructor(x, y, direction, isEnemy, owner) {
+        this.x = x - 2;
+        this.y = y;
+        this.width = 4;
+        this.height = 10;
+        this.direction = direction;
+        this.isEnemy = isEnemy;
+        this.owner = owner;
+        this.color = isEnemy ? '#ff00ff' : '#00ffff';
+    }
+    update() {
+        this.y += this.direction * BULLET_SPEED;
+    }
+    draw(ctx) {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = this.color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+}
+// ----------------------
+// GAME ENTITIES
+// ----------------------
+class Enemy {
+    constructor(game, x, y) {
+        this.game = game;
+        this.width = 30;
+        this.height = 20;
+        this.x = x;
+        this.y = y;
+        this.color = '#39ff14';
+    }
+    update(direction) {
+        this.x += direction * ENEMY_SPEED;
+    }
+    shoot() {
+        this.game.bullets.push(new Bullet(this.x + this.width / 2, this.y + this.height, 1, true, null));
+    }
+    draw(ctx) {
+        ctx.fillStyle = this.color;
+        // Pixel art "invader" using 5x5 grid approx
+        const pSize = this.width / 11; // 11 pixels wide
+        const shape = [
+            [2, 8],
+            [3, 7],
+            [2, 3, 4, 5, 6, 7, 8],
+            [1, 2, 4, 5, 6, 8, 9],
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            [0, 2, 3, 4, 5, 6, 7, 8, 10],
+            [0, 2, 8, 10],
+            [3, 4, 6, 7]
+        ];
+        shape.forEach((row, rowIndex) => {
+            row.forEach(colIndex => {
+                ctx.fillRect(this.x + colIndex * pSize, this.y + rowIndex * pSize, pSize, pSize);
+            });
+        });
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = this.color;
+        ctx.fill(); // Context fill doesn't help rects but shadow works
+        ctx.shadowBlur = 0;
+    }
+}
+class Boss extends Enemy {
+    constructor(game, x, y, level) {
+        super(game, x, y);
+        this.width = 100; // Much bigger
+        this.height = 60;
+        this.level = level;
+        this.name = "BOSS";
+        // Stats based on level
+        if (level === 15) {
+            this.hp = 50;
+            this.color = '#ffaa00'; // Orange
+            this.name = "HIVE GUARDIAN";
+        } else if (level === 30) {
+            this.hp = 100;
+            this.color = '#ff0000'; // Red
+            this.name = "DREADNOUGHT";
+        } else if (level === 45) {
+            this.hp = 150;
+            this.color = '#ff00ff'; // Purple
+            this.name = "VOID CRUISER";
+        } else if (level === 50) {
+            this.hp = 500;
+            this.width = 150;
+            this.height = 80;
+            this.color = '#00ffff'; // Cyan
+            this.name = "THE MOTHERSHIP";
+        }
+        this.maxHp = this.hp;
+        this.moveSpeed = 2;
+        this.direction = 1;
+    }
+    update() {
+        // Boss sweeps back and forth
+        this.x += this.direction * this.moveSpeed;
+        if (this.x <= 0 || this.x + this.width >= CANVAS_WIDTH) {
+            this.direction *= -1;
+        }
+        // Boss Shooting Pattern
+        if (Math.random() < 0.05) { // 5% chance per frame (aggressive)
+            this.shoot();
+        }
+    }
+    shoot() {
+        // Triple Shot
+        const centerX = this.x + this.width / 2;
+        const bottomY = this.y + this.height;
+        this.game.bullets.push(new Bullet(centerX, bottomY, 1, true, null));
+        this.game.bullets.push(new Bullet(centerX - 20, bottomY, 1, true, null)); // Angled left? (Simplified to straight for now)
+        this.game.bullets.push(new Bullet(centerX + 20, bottomY, 1, true, null));
+    }
+    draw(ctx) {
+        // Draw Boss Body
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+        // Draw Health Bar
+        const barWidth = this.width;
+        const barHeight = 5;
+        const healthPercent = this.hp / this.maxHp;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(this.x, this.y - 10, barWidth, barHeight);
+        ctx.fillStyle = '#00ff00';
+        ctx.fillRect(this.x, this.y - 10, barWidth * healthPercent, barHeight);
+        // Draw Name
+        ctx.fillStyle = '#fff';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.name, this.x + this.width / 2, this.y - 15);
+        ctx.textAlign = 'left'; // Reset
+    }
+}
+class Player {
+    constructor(game, id, isCpu = false) {
+        this.game = game;
+        this.id = id;
+        this.isCpu = isCpu;
+        this.id = id;
+        this.isCpu = isCpu;
+        this.width = 40;
+        this.height = 20;
+        this.lives = 5;
+        this.score = 0;
+        this.hits = 0;
+        this.hits = 0;
+        this.misses = 0;
+        this.invulnerable = 0;
+        this.isDead = false;
+        if (this.game.numPlayers === 1) {
+            this.x = CANVAS_WIDTH / 2 - this.width / 2;
+            this.color = '#00ffff';
+        } else if (this.game.numPlayers === 2) {
+            // P1 Left, P2 Right
+            if (id === 1) {
+                this.x = CANVAS_WIDTH / 3 - this.width / 2;
+                this.color = '#00ffff'; // Cyan
+            } else {
+                this.x = (CANVAS_WIDTH / 3) * 2 - this.width / 2;
+                this.color = isCpu ? '#ff00ff' : '#ffaa00'; // Magenta for CPU, Orange for P2
+            }
+        } else {
+            // 3 players: Left, Center, Right
+            if (id === 1) {
+                this.x = CANVAS_WIDTH / 4 - this.width / 2;
+                this.color = '#00ffff'; // Cyan
+            } else if (id === 2) {
+                this.x = CANVAS_WIDTH / 2 - this.width / 2;
+                this.color = '#ffaa00'; // Orange
+            } else {
+                this.x = (CANVAS_WIDTH / 4) * 3 - this.width / 2;
+                this.color = '#39ff14'; // Neon Green
+            }
+        }
+        this.y = CANVAS_HEIGHT - 50;
+    }
+    resetPosition() {
+        if (this.game.numPlayers === 1) {
+            this.x = CANVAS_WIDTH / 2 - this.width / 2;
+        } else if (this.game.numPlayers === 2) {
+            if (this.id === 1) {
+                this.x = CANVAS_WIDTH / 3 - this.width / 2;
+            } else {
+                this.x = (CANVAS_WIDTH / 3) * 2 - this.width / 2;
+            }
+        } else {
+            if (this.id === 1) {
+                this.x = CANVAS_WIDTH / 4 - this.width / 2;
+            } else if (this.id === 2) {
+                this.x = CANVAS_WIDTH / 2 - this.width / 2;
+            } else {
+                this.x = (CANVAS_WIDTH / 4) * 3 - this.width / 2;
+            }
+        }
+        this.y = CANVAS_HEIGHT - 50;
+    }
+    updateInput(keys) {
+        if (this.id === 1) {
+            if (keys['ArrowLeft']) this.move(-1);
+            if (keys['ArrowRight']) this.move(1);
+            if (keys['ArrowUp']) this.moveY(-1);
+            if (keys['ArrowDown']) this.moveY(1);
+        } else if (this.id === 2) {
+            if (keys['KeyA']) this.move(-1);
+            if (keys['KeyD']) this.move(1);
+            if (keys['KeyW']) this.moveY(-1);
+            if (keys['KeyS']) this.moveY(1);
+        } else if (this.id === 3) {
+            if (keys['KeyV']) this.move(-1);
+            if (keys['KeyN']) this.move(1);
+            if (keys['KeyG']) this.moveY(-1);
+            if (keys['KeyH']) this.moveY(1);
+        }
+    }
+    handleShoot(code) {
+        if (this.id === 1 && code === 'Space') {
+            this.shoot();
+        }
+        if (this.id === 2 && code === 'KeyF') {
+            this.shoot();
+        }
+        if (this.id === 3 && code === 'KeyB') {
+            this.shoot();
+        }
+    }
+    move(dir) {
+        this.x += dir * PLAYER_SPEED;
+        if (this.x < 0) this.x = 0;
+        if (this.x + this.width > CANVAS_WIDTH) this.x = CANVAS_WIDTH - this.width;
+    }
+    moveY(dir) {
+        this.y += dir * PLAYER_SPEED;
+        // Limit vertical movement to bottom half of screen
+        const minY = CANVAS_HEIGHT / 2;
+        // Ensure player stays fully on screen with a buffer
+        const maxY = CANVAS_HEIGHT - this.height - 50;
+        if (this.y < minY) this.y = minY;
+        if (this.y > maxY) this.y = maxY;
+    }
+    shoot() {
+        this.game.bullets.push(new Bullet(this.x + this.width / 2, this.y, -1, false, this));
+    }
+    update() {
+        if (this.invulnerable > 0) this.invulnerable--;
+        if (this.isCpu) {
+            this.aiLogic();
+        }
+    }
+    aiLogic() {
+        // Advanced AI: Find lowest enemy (most threatening) first
+        let targetEnemy = null;
+        let maxY = -Infinity;
+        let minDist = Infinity;
+        // Find bottom-most row first
+        this.game.enemies.forEach(e => {
+            if (e.y > maxY) {
+                maxY = e.y;
+                targetEnemy = e;
+                minDist = Math.abs((e.x + e.width / 2) - (this.x + this.width / 2));
+            } else if (e.y === maxY) {
+                // If same row, pick closest
+                const dist = Math.abs((e.x + e.width / 2) - (this.x + this.width / 2));
+                if (dist < minDist) {
+                    minDist = dist;
+                    targetEnemy = e;
+                }
+            }
+        });
+        if (targetEnemy) {
+            const center = this.x + this.width / 2;
+            const target = targetEnemy.x + targetEnemy.width / 2;
+            // Tighter movement threshold
+            if (Math.abs(center - target) > 2) {
+                if (center < target) this.move(1);
+                else this.move(-1);
+            }
+            // MAX AGGRESSION
+            if (Math.abs(center - target) < 60 && Math.random() < 0.9) {
+                this.shoot();
+            }
+        }
+    }
+    draw(ctx) {
+        if (this.isDead) return;
+        if (this.invulnerable > 0 && Math.floor(Date.now() / 100) % 2 === 0) return; // Blink effect
+        ctx.fillStyle = this.color;
+        // Simple ship shape
+        ctx.beginPath();
+        ctx.moveTo(this.x + this.width / 2, this.y);
+        ctx.lineTo(this.x + this.width, this.y + this.height);
+        ctx.lineTo(this.x + this.width / 2, this.y + this.height - 5);
+        ctx.lineTo(this.x, this.y + this.height);
+        ctx.closePath();
+        ctx.fill();
+        // Shadow/Glow
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+}
+// ----------------------
+// GAME ENGINE
+// ----------------------
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -37,8 +491,6 @@ class Game {
         this.btnLogin = document.getElementById('btnLogin');
         this.loginMsg = document.getElementById('loginMsg');
         this.state = 'LOGIN'; // LOGIN, START, PLAYING, GAMEOVER
-        // this.score = 0; // Score now per player
-        // this.lives = 3; // Lives now tracked in Player class
         this.keys = {};
         this.numPlayers = 1;
         this.currentPlayerName = "COMMANDER";
@@ -56,7 +508,7 @@ class Game {
     }
     init() {
         this.setupLogin();
-        // ... rest of init
+        this.setupInput();
         this.socialManager.initUser(this.currentPlayerName);
     }
     // MULTIPLAYER METHODS
@@ -91,7 +543,6 @@ class Game {
         if (data.enemies) {
             this.enemies = data.enemies.map(e => {
                 const enemy = new Enemy(this, e.x, e.y);
-                // Can optimize by not recreating objects every frame, just updating xy
                 return enemy;
             });
         }
@@ -110,7 +561,6 @@ class Game {
         const p2 = this.players[1];
         if (p2 && data) {
             p2.x = data.x;
-            // Handle shooting?
             if (data.shooting) p2.shoot();
         }
     }
@@ -151,7 +601,7 @@ class Game {
              this.gameOver();
              return;
          }
-         // Update HUD every frame or throttle? Every frame is fine for local.
+         // Update HUD
          this.updateHUD();
  
          // Player Movement
@@ -188,9 +638,6 @@ class Game {
          }
  
          // Enemy Shooting
-         // Base chance 0.002 (0.2%) + 0.001 per level (slower)
-         // Level 1: 0.3%
-         // Level 10: ~1.2%
          const shootChance = 0.002 + (this.level * 0.001);
  
          if (Math.random() < shootChance && this.enemies.length > 0) {
@@ -565,461 +1012,7 @@ class Game {
         requestAnimationFrame(this.loop);
     }
 }
-class Player {
-    constructor(game, id, isCpu = false) {
-        this.game = game;
-        this.id = id;
-        this.isCpu = isCpu;
-        this.id = id;
-        this.isCpu = isCpu;
-        this.width = 40;
-        this.height = 20;
-        this.lives = 5;
-        this.score = 0;
-        this.hits = 0;
-        this.hits = 0;
-        this.misses = 0;
-        this.invulnerable = 0;
-        this.isDead = false;
-        if (this.game.numPlayers === 1) {
-            this.x = CANVAS_WIDTH / 2 - this.width / 2;
-            this.color = '#00ffff';
-        } else if (this.game.numPlayers === 2) {
-            // P1 Left, P2 Right
-            if (id === 1) {
-                this.x = CANVAS_WIDTH / 3 - this.width / 2;
-                this.color = '#00ffff'; // Cyan
-            } else {
-                this.x = (CANVAS_WIDTH / 3) * 2 - this.width / 2;
-                this.color = isCpu ? '#ff00ff' : '#ffaa00'; // Magenta for CPU, Orange for P2
-            }
-        } else {
-            // 3 players: Left, Center, Right
-            if (id === 1) {
-                this.x = CANVAS_WIDTH / 4 - this.width / 2;
-                this.color = '#00ffff'; // Cyan
-            } else if (id === 2) {
-                this.x = CANVAS_WIDTH / 2 - this.width / 2;
-                this.color = '#ffaa00'; // Orange
-            } else {
-                this.x = (CANVAS_WIDTH / 4) * 3 - this.width / 2;
-                this.color = '#39ff14'; // Neon Green
-            }
-        }
-        this.y = CANVAS_HEIGHT - 50;
-    }
-    resetPosition() {
-        if (this.game.numPlayers === 1) {
-            this.x = CANVAS_WIDTH / 2 - this.width / 2;
-        } else if (this.game.numPlayers === 2) {
-            if (this.id === 1) {
-                this.x = CANVAS_WIDTH / 3 - this.width / 2;
-            } else {
-                this.x = (CANVAS_WIDTH / 3) * 2 - this.width / 2;
-            }
-        } else {
-            if (this.id === 1) {
-                this.x = CANVAS_WIDTH / 4 - this.width / 2;
-            } else if (this.id === 2) {
-                this.x = CANVAS_WIDTH / 2 - this.width / 2;
-            } else {
-                this.x = (CANVAS_WIDTH / 4) * 3 - this.width / 2;
-            }
-        }
-        this.y = CANVAS_HEIGHT - 50;
-    }
-    updateInput(keys) {
-        if (this.id === 1) {
-            if (keys['ArrowLeft']) this.move(-1);
-            if (keys['ArrowRight']) this.move(1);
-            if (keys['ArrowUp']) this.moveY(-1);
-            if (keys['ArrowDown']) this.moveY(1);
-        } else if (this.id === 2) {
-            if (keys['KeyA']) this.move(-1);
-            if (keys['KeyD']) this.move(1);
-            if (keys['KeyW']) this.moveY(-1);
-            if (keys['KeyS']) this.moveY(1);
-        } else if (this.id === 3) {
-            if (keys['KeyV']) this.move(-1);
-            if (keys['KeyN']) this.move(1);
-            if (keys['KeyG']) this.moveY(-1);
-            if (keys['KeyH']) this.moveY(1);
-        }
-    }
-    handleShoot(code) {
-        if (this.id === 1 && code === 'Space') {
-            this.shoot();
-        }
-        if (this.id === 2 && code === 'KeyF') {
-            this.shoot();
-        }
-        if (this.id === 3 && code === 'KeyB') {
-            this.shoot();
-        }
-    }
-    move(dir) {
-        this.x += dir * PLAYER_SPEED;
-        if (this.x < 0) this.x = 0;
-        if (this.x + this.width > CANVAS_WIDTH) this.x = CANVAS_WIDTH - this.width;
-    }
-    moveY(dir) {
-        this.y += dir * PLAYER_SPEED;
-        // Limit vertical movement to bottom half of screen
-        const minY = CANVAS_HEIGHT / 2;
-        // Ensure player stays fully on screen with a buffer
-        const maxY = CANVAS_HEIGHT - this.height - 50;
-        if (this.y < minY) this.y = minY;
-        if (this.y > maxY) this.y = maxY;
-    }
-    shoot() {
-        this.game.bullets.push(new Bullet(this.x + this.width / 2, this.y, -1, false, this));
-    }
-    update() {
-        if (this.invulnerable > 0) this.invulnerable--;
-        if (this.isCpu) {
-            this.aiLogic();
-        }
-    }
-    aiLogic() {
-        // Advanced AI: Find lowest enemy (most threatening) first
-        let targetEnemy = null;
-        let maxY = -Infinity;
-        let minDist = Infinity;
-        // Find bottom-most row first
-        this.game.enemies.forEach(e => {
-            if (e.y > maxY) {
-                maxY = e.y;
-                targetEnemy = e;
-                minDist = Math.abs((e.x + e.width / 2) - (this.x + this.width / 2));
-            } else if (e.y === maxY) {
-                // If same row, pick closest
-                const dist = Math.abs((e.x + e.width / 2) - (this.x + this.width / 2));
-                if (dist < minDist) {
-                    minDist = dist;
-                    targetEnemy = e;
-                }
-            }
-        });
-        if (targetEnemy) {
-            const center = this.x + this.width / 2;
-            const target = targetEnemy.x + targetEnemy.width / 2;
-            // Tighter movement threshold (was 10, then 5)
-            // Now 2 for pixel-perfect tracking
-            if (Math.abs(center - target) > 2) {
-                if (center < target) this.move(1);
-                else this.move(-1);
-            }
-            // MAX AGGRESSION (GOD MODE AI)
-            // Shoot if aligned within 60px (wide angle spray) and 90% fire rate per frame
-            if (Math.abs(center - target) < 60 && Math.random() < 0.9) {
-                this.shoot();
-            }
-        }
-    }
-    draw(ctx) {
-        if (this.isDead) return;
-        if (this.invulnerable > 0 && Math.floor(Date.now() / 100) % 2 === 0) return; // Blink effect
-        ctx.fillStyle = this.color;
-        // Simple ship shape
-        ctx.beginPath();
-        ctx.moveTo(this.x + this.width / 2, this.y);
-        ctx.lineTo(this.x + this.width, this.y + this.height);
-        ctx.lineTo(this.x + this.width / 2, this.y + this.height - 5);
-        ctx.lineTo(this.x, this.y + this.height);
-        ctx.closePath();
-        ctx.fill();
-        // Shadow/Glow
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = this.color;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-    }
-}
-class Boss extends Enemy {
-    constructor(game, x, y, level) {
-        super(game, x, y);
-        this.width = 100; // Much bigger
-        this.height = 60;
-        this.level = level;
-        this.name = "BOSS";
-        // Stats based on level
-        if (level === 15) {
-            this.hp = 50;
-            this.color = '#ffaa00'; // Orange
-            this.name = "HIVE GUARDIAN";
-        } else if (level === 30) {
-            this.hp = 100;
-            this.color = '#ff0000'; // Red
-            this.name = "DREADNOUGHT";
-        } else if (level === 45) {
-            this.hp = 150;
-            this.color = '#ff00ff'; // Purple
-            this.name = "VOID CRUISER";
-        } else if (level === 50) {
-            this.hp = 500;
-            this.width = 150;
-            this.height = 80;
-            this.color = '#00ffff'; // Cyan
-            this.name = "THE MOTHERSHIP";
-        }
-        this.maxHp = this.hp;
-        this.moveSpeed = 2;
-        this.direction = 1;
-    }
-    update() {
-        // Boss sweeps back and forth
-        this.x += this.direction * this.moveSpeed;
-        if (this.x <= 0 || this.x + this.width >= CANVAS_WIDTH) {
-            this.direction *= -1;
-        }
-        // Boss Shooting Pattern
-        if (Math.random() < 0.05) { // 5% chance per frame (aggressive)
-            this.shoot();
-        }
-    }
-    shoot() {
-        // Triple Shot
-        const centerX = this.x + this.width / 2;
-        const bottomY = this.y + this.height;
-        this.game.bullets.push(new Bullet(centerX, bottomY, 1, true, null));
-        this.game.bullets.push(new Bullet(centerX - 20, bottomY, 1, true, null)); // Angled left? (Simplified to straight for now)
-        this.game.bullets.push(new Bullet(centerX + 20, bottomY, 1, true, null));
-    }
-    draw(ctx) {
-        // Draw Boss Body
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        // Draw Health Bar
-        const barWidth = this.width;
-        const barHeight = 5;
-        const healthPercent = this.hp / this.maxHp;
-        ctx.fillStyle = '#333';
-        ctx.fillRect(this.x, this.y - 10, barWidth, barHeight);
-        ctx.fillStyle = '#00ff00';
-        ctx.fillRect(this.x, this.y - 10, barWidth * healthPercent, barHeight);
-        // Draw Name
-        ctx.fillStyle = '#fff';
-        ctx.font = '10px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.name, this.x + this.width / 2, this.y - 15);
-        ctx.textAlign = 'left'; // Reset
-    }
-}
-class Enemy {
-    constructor(game, x, y) {
-        this.game = game;
-        this.width = 30;
-        this.height = 20;
-        this.x = x;
-        this.y = y;
-        this.color = '#39ff14';
-    }
-    update(direction) {
-        this.x += direction * ENEMY_SPEED;
-    }
-    shoot() {
-        this.game.bullets.push(new Bullet(this.x + this.width / 2, this.y + this.height, 1, true, null));
-    }
-    draw(ctx) {
-        ctx.fillStyle = this.color;
-        // Pixel art "invader" using 5x5 grid approx
-        const pSize = this.width / 11; // 11 pixels wide
-        // Simple pixel map for an invader (1 = fill, 0 = empty)
-        // 0 0 1 0 0 0 0 0 1 0 0
-        // 0 0 0 1 0 0 0 1 0 0 0
-        // 0 0 1 1 1 1 1 1 1 0 0
-        // 0 1 1 0 1 1 1 0 1 1 0
-        // 1 1 1 1 1 1 1 1 1 1 1
-        // 1 0 1 1 1 1 1 1 1 0 1
-        // 1 0 1 0 0 0 0 0 1 0 1
-        // 0 0 0 1 1 0 1 1 0 0 0
-        const shape = [
-            [2, 8],
-            [3, 7],
-            [2, 3, 4, 5, 6, 7, 8],
-            [1, 2, 4, 5, 6, 8, 9],
-            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-            [0, 2, 3, 4, 5, 6, 7, 8, 10],
-            [0, 2, 8, 10],
-            [3, 4, 6, 7]
-        ];
-        shape.forEach((row, rowIndex) => {
-            row.forEach(colIndex => {
-                ctx.fillRect(this.x + colIndex * pSize, this.y + rowIndex * pSize, pSize, pSize);
-            });
-        });
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = this.color;
-        ctx.fill(); // Context fill doesn't help rects but shadow works
-        ctx.shadowBlur = 0;
-    }
-}
-class Bullet {
-    constructor(x, y, direction, isEnemy, owner) {
-        this.x = x - 2;
-        this.y = y;
-        this.width = 4;
-        this.height = 10;
-        this.direction = direction;
-        this.isEnemy = isEnemy;
-        this.owner = owner;
-        this.color = isEnemy ? '#ff00ff' : '#00ffff';
-    }
-    update() {
-        this.y += this.direction * BULLET_SPEED;
-    }
-    draw(ctx) {
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = this.color;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-    }
-}
-class Particle {
-    constructor(x, y, color) {
-        this.x = x;
-        this.y = y;
-        this.size = Math.random() * 3 + 1;
-        this.speedX = Math.random() * 4 - 2;
-        this.speedY = Math.random() * 4 - 2;
-        this.color = color;
-        this.life = 100;
-    }
-    update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
-        this.life -= 2;
-        this.size *= 0.95;
-    }
-    draw(ctx) {
-        ctx.fillStyle = this.color;
-        ctx.globalAlpha = this.life / 100;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-    }
-}
-class FloatingText {
-    constructor(x, y, text, color) {
-        this.x = x;
-        this.y = y;
-        this.text = text;
-        this.color = color;
-        this.life = 60; // 1 second
-        this.velocity = -1; // float up
-    }
-    update() {
-        this.y += this.velocity;
-        this.life--;
-    }
-    draw(ctx) {
-        ctx.save();
-        ctx.fillStyle = this.color;
-        ctx.font = 'bold 16px "Orbitron"';
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 5;
-        ctx.globalAlpha = this.life / 60;
-        ctx.fillText(this.text, this.x, this.y);
-        ctx.restore();
-    }
-}
 // Start Game
 window.onload = () => {
     window.game = new Game();
 };
-class HighScoreManager {
-    constructor() {
-        this.scores = [];
-        this.useCloud = !!window.db;
-        this.render();
-        this.loadScores();
-    }
-    async loadScores() {
-        const statusEl = document.getElementById('connectionStatus');
-        if (this.useCloud) {
-            try {
-                if (statusEl) {
-                    statusEl.innerText = "📡 SECTOR DATALINK: ESTABLISHED";
-                    statusEl.style.color = "#39ff14";
-                }
-                const snapshot = await window.db.collection('scores')
-                    .orderBy('score', 'desc')
-                    .limit(5)
-                    .get();
-                this.scores = snapshot.docs.map(doc => doc.data());
-                this.render();
-            } catch (e) {
-                console.error("Error loading cloud scores:", e);
-                if (statusEl) {
-                    statusEl.innerText = "⚠️ DATALINK ERROR: OFFLINE MODE";
-                    statusEl.style.color = "var(--neon-red)";
-                }
-                this.loadLocal(); // Fallback
-            }
-        } else {
-            console.warn("Cloud DB not found in window.db");
-            if (statusEl) statusEl.innerText = "⚠️ NO LINK: LOCAL MODE ONLY";
-            this.loadLocal();
-        }
-    }
-    loadLocal() {
-        this.scores = JSON.parse(localStorage.getItem('spaceInvadersScores')) || [
-            { name: "CPU COMMANDER", score: 5000 },
-            { name: "ACE PILOT", score: 3000 },
-            { name: "ROOKIE", score: 1000 }
-        ];
-        this.render();
-    }
-    async saveScore(name, score) {
-        if (this.useCloud) {
-            try {
-                const scoresRef = window.db.collection('scores');
-                const query = await scoresRef.where('name', '==', name).get();
-                if (!query.empty) {
-                    // User exists, check if new score is higher
-                    const doc = query.docs[0];
-                    const data = doc.data();
-                    if (score > data.score) {
-                        await scoresRef.doc(doc.id).update({ score: score, date: Date.now() });
-                    }
-                } else {
-                    // New user
-                    await scoresRef.add({ name, score, date: Date.now() });
-                }
-                await this.loadScores(); // Refresh
-            } catch (e) {
-                console.error("Error saving to cloud:", e);
-            }
-        } else {
-            // Local fallback logic (simple)
-            const existingIndex = this.scores.findIndex(s => s.name === name);
-            if (existingIndex !== -1) {
-                if (score > this.scores[existingIndex].score) {
-                    this.scores[existingIndex].score = score;
-                }
-            } else {
-                this.scores.push({ name, score, date: Date.now() });
-            }
-            this.scores.sort((a, b) => b.score - a.score);
-            this.scores = this.scores.slice(0, 5);
-            localStorage.setItem('spaceInvadersScores', JSON.stringify(this.scores));
-            this.render();
-        }
-    }
-    render() {
-        const list = document.getElementById('scoreList');
-        if (!list) return;
-        list.innerHTML = this.scores
-            .map((s, i) => `
-                <li>
-                    <span class="rank">#${i + 1}</span>
-                    <span class="name">${s.name}</span>
-                    <span class="score">${s.score ? s.score.toLocaleString() : 0}</span>
-                </li>
-            `)
-            .join('');
-    }
-}
