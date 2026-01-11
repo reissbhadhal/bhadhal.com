@@ -76,21 +76,30 @@ class SocialManager {
         }
 
         try {
-            // Check if user exists
+            // 1. Check if user has a Social Profile
             const targetDoc = await this.db.collection('users').doc(targetName).get();
-            if (!targetDoc.exists) {
-                this.showMsg("USER NOT FOUND", "red");
+
+            if (targetDoc.exists) {
+                // User exists and is ready
+                await this.currentUserDoc.update({
+                    friends: firebase.firestore.FieldValue.arrayUnion(targetName)
+                });
+                this.showMsg(`ALLY ADDED: ${targetName}`, "green");
+                this.input.value = "";
+                this.loadFriends();
                 return;
             }
 
-            // Add to my friend list
-            await this.currentUserDoc.update({
-                friends: firebase.firestore.FieldValue.arrayUnion(targetName)
-            });
+            // 2. Fallback: Check High Scores (Legacy Player?)
+            this.showMsg("SEARCHING ARCHIVES...", "yellow");
+            const scoreCheck = await this.db.collection('scores').where('name', '==', targetName).limit(1).get();
 
-            this.showMsg(`ALLY ADDED: ${targetName}`, "green");
-            this.input.value = "";
-            this.loadFriends();
+            if (!scoreCheck.empty) {
+                // Found in high scores, but no social profile yet
+                this.showMsg("PILOT MUST LOG IN UPDATE SYSTEM", "red");
+            } else {
+                this.showMsg("USER NOT FOUND", "red");
+            }
 
         } catch (e) {
             console.error(e);
