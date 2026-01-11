@@ -149,11 +149,22 @@ class Game {
             }
         }
 
-        // ... Normal Game Logic (Host runs this for everyone) ... 
-        const now = Date.now();
+        if (this.state === 'GAME_OVER' || this.state === 'PAUSED') return;
 
-        this.setupInput();
-        this.loop = this.loop.bind(this);
+        const now = Date.now();
+        const dt = (now - this.lastTime) / 1000;
+        this.lastTime = now;
+
+        // Clear canvas
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Update logic
+        this.networkManager.update(dt); // Keep network sync
+        this.updateGameLogic(dt);
+
+        this.draw();
+
         requestAnimationFrame(this.loop);
     }
 
