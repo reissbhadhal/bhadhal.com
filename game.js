@@ -160,9 +160,8 @@ class Game {
         const dt = (now - this.lastTime) / 1000;
         this.lastTime = now;
 
-        // Clear canvas
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        // Clear canvas (Transparent to show CSS background)
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         // Update logic
         this.networkManager.update(dt); // Keep network sync
