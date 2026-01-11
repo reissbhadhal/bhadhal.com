@@ -321,8 +321,97 @@ canvas {
     box-shadow: 0 0 20px var(--neon-blue);
     background: #fff;
 }
-html, body {
-    touch-action: none; /* Prevent scrolling/zooming */
+
+/* Social Hub Styles */
+.social-btn {
+    background: linear-gradient(45deg, #00ffff, #0066ff);
+    color: #000;
+    border: none;
+    padding: 10px 20px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 15px;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    transition: all 0.2s;
+}
+
+.social-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+}
+
+.social-container {
+    width: 350px;
+    max-width: 90vw;
+}
+
+.add-friend-section {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.add-friend-section input {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid #00ffff;
+    color: #fff;
+    padding: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    flex-grow: 1;
+}
+
+.friend-list-container {
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid #333;
+    padding: 15px;
+    min-height: 200px;
+    text-align: left;
+}
+
+.friend-list-container h3 {
+    color: #39ff14;
+    font-size: 1rem;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+    margin-top: 0;
+}
+
+#friendList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#friendList li {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.friend-status {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 10px;
+}
+
+.status-online {
+    background: #39ff14;
+    box-shadow: 0 0 5px #39ff14;
+}
+
+.status-offline {
+    background: #666;
+}
+
+html,
+body {
+    touch-action: none;
+    /* Prevent scrolling/zooming */
     overflow: hidden;
 }
 
@@ -335,7 +424,7 @@ html, body {
         width: 100%;
         align-items: center;
     }
-    
+
     .mobile-start-buttons button {
         background: var(--neon-blue);
         color: #000;
@@ -350,7 +439,7 @@ html, body {
 
     /* Make text instructions smaller on mobile to fit */
     .controls-hint {
-        font-size: 1rem; 
+        font-size: 1rem;
         flex-direction: column;
     }
 }

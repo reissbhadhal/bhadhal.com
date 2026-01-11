@@ -54,11 +54,104 @@ class Game {
         this.enemyMoveInterval = 50; // frames
 
         this.highScoreManager = new HighScoreManager();
+        this.socialManager = new SocialManager(this);
+        this.networkManager = new NetworkManager(this);
         this.init();
     }
 
     init() {
         this.setupLogin();
+        // ... rest of init
+        this.socialManager.initUser(this.currentPlayerName);
+    }
+
+    // ... existing setupLogin ...
+
+    // MULTIPLAYER METHODS
+    startMultiplayer(role) {
+        this.mode = 'MULTIPLAYER'; // 'LOCAL' or 'MULTIPLAYER'
+        this.networkManager.role = role;
+        this.networkManager.listenForUpdates();
+
+        // UI Prep
+        this.startScreen.classList.add('hidden');
+        this.socialManager.toggle(false); // Close social
+
+        // Reset Game
+        this.level = 1;
+        this.resetPlayersMultplayer();
+
+        if (role === 'HOST') {
+            this.spawnEntities(true);
+        } else {
+            // Guest waits for entities from Host
+            this.enemies = [];
+            this.bullets = [];
+        }
+
+        this.loop();
+    }
+
+    resetPlayersMultplayer() {
+        this.players = [];
+        // P1 (Host)
+        this.players.push(new Player(this, 1));
+        // P2 (Guest)
+        this.players.push(new Player(this, 2));
+    }
+
+    syncFromHost(data) {
+        // Update Game State from Host Data
+        if (data.enemies) {
+            this.enemies = data.enemies.map(e => {
+                const enemy = new Enemy(this, e.x, e.y);
+                // Can optimize by not recreating objects every frame, just updating xy
+                return enemy;
+            });
+        }
+        if (data.bullets) {
+            this.bullets = data.bullets.map(b => new Bullet(b.x, b.y, b.isEnemy ? 1 : -1, b.isEnemy, null));
+        }
+        if (data.p1) {
+            const p1 = this.players[0];
+            p1.x = data.p1.x;
+            p1.score = data.p1.score;
+            p1.lives = data.p1.lives;
+        }
+    }
+
+    syncFromGuest(data) {
+        // Update P2 from Guest Data
+        const p2 = this.players[1];
+        if (p2 && data) {
+            p2.x = data.x;
+            // Handle shooting?
+            if (data.shooting) p2.shoot();
+        }
+    }
+
+    update() {
+        if (this.state !== 'PLAYING') return;
+
+        // MULTIPLAYER SYNC
+        if (this.mode === 'MULTIPLAYER') {
+            this.networkManager.update();
+
+            // If Guest, I ONLY update my own input (P2) locally for prediction
+            // And render what Host sends.
+            if (this.networkManager.role === 'GUEST') {
+                this.updateHUD();
+                this.draw();
+                // Guest Input Logic
+                const p2 = this.players[1];
+                p2.updateInput(this.keys);
+                return; // SKIP normal game logic (physics/ai)
+            }
+        }
+
+        // ... Normal Game Logic (Host runs this for everyone) ... 
+        const now = Date.now();
+
         this.setupInput();
         this.loop = this.loop.bind(this);
         requestAnimationFrame(this.loop);
