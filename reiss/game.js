@@ -8,13 +8,18 @@ const ENEMY_SPEED = 1;
 const ENEMY_DROP_DISTANCE = 20;
 
 const BG_GRADIENTS = [
-    'radial-gradient(circle at center, #1a1a2e 0%, #050510 100%)', // Lvl 1: Deep Blue
-    'radial-gradient(circle at center, #2e1a2e 0%, #100510 100%)', // Lvl 2: Purple Mist
-    'radial-gradient(circle at center, #2e1a1a 0%, #100505 100%)', // Lvl 3: Red Alert
-    'radial-gradient(circle at center, #1a2e1a 0%, #051005 100%)', // Lvl 4: Toxic Green
-    'radial-gradient(circle at center, #2e2e1a 0%, #101005 100%)', // Lvl 5: Golden
-    'radial-gradient(circle at center, #1a2e2e 0%, #051010 100%)', // Lvl 6: Cyan Deep
-    'radial-gradient(circle at center, #000000 0%, #1a1a1a 100%)', // Lvl 7: Void
+    'radial-gradient(circle at center, #0f0c29, #302b63, #24243e)', // Lvl 1: Deep Space (Purple/Blue)
+    'linear-gradient(to bottom, #000428, #004e92)', // Lvl 2: Stratosphere (Blue)
+    'radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%)', // Lvl 3: The Void (Dark)
+    'linear-gradient(135deg, #4b6cb7 0%, #182848 100%)', // Lvl 4: Nebula (Blue/Grey)
+    'radial-gradient(circle at 50% 50%, #203a43, #2c5364)', // Lvl 5: Teal Horizon
+    'linear-gradient(to top, #c02425, #f0cb35)', // Lvl 6: Solar Flare (Red/Gold) - Intense!
+    'radial-gradient(circle at top, #232526, #414345)', // Lvl 7: Asteroid Belt (Grey/Black)
+    'linear-gradient(45deg, #8e2de2, #4a00e0)', // Lvl 8: Plasma Storm (Neon Purple)
+    'radial-gradient(circle at bottom, #0f2027, #203a43, #2c5364)', // Lvl 9: Cyber City (Green/Blue)
+    'linear-gradient(to right, #243949 0%, #517fa4 100%)', // Lvl 10: Steel Sky
+    'radial-gradient(circle, #5f2c82, #49a09d)', // Lvl 11: Aurora (Green/Pink)
+    'linear-gradient(to bottom, #000000, #434343)', // Lvl 12: Event Horizon (Pitch Black)
 ];
 
 class Game {
@@ -33,8 +38,6 @@ class Game {
         this.statsElement = document.getElementById('gameStats');
         this.loginScreen = document.getElementById('loginScreen');
         this.loginUser = document.getElementById('loginUser');
-        this.loginEmail = document.getElementById('loginEmail');
-        this.loginPass = document.getElementById('loginPass');
         this.btnLogin = document.getElementById('btnLogin');
         this.loginMsg = document.getElementById('loginMsg');
 
@@ -54,13 +57,116 @@ class Game {
         this.enemyMoveInterval = 50; // frames
 
         this.highScoreManager = new HighScoreManager();
+        this.socialManager = new SocialManager(this);
+        this.networkManager = new NetworkManager(this);
         this.init();
     }
 
     init() {
         this.setupLogin();
-        this.setupInput();
-        this.loop = this.loop.bind(this);
+        // ... rest of init
+        this.socialManager.initUser(this.currentPlayerName);
+    }
+
+    // ... existing setupLogin ...
+
+    // MULTIPLAYER METHODS
+    startMultiplayer(role) {
+        this.mode = 'MULTIPLAYER'; // 'LOCAL' or 'MULTIPLAYER'
+        this.networkManager.role = role;
+        this.networkManager.listenForUpdates();
+
+        // UI Prep
+        this.startScreen.classList.add('hidden');
+        this.socialManager.toggle(false); // Close social
+
+        // Reset Game
+        this.level = 1;
+        this.resetPlayersMultplayer();
+
+        if (role === 'HOST') {
+            this.spawnEntities(true);
+        } else {
+            // Guest waits for entities from Host
+            this.enemies = [];
+            this.bullets = [];
+        }
+
+        this.loop();
+    }
+
+    resetPlayersMultplayer() {
+        this.players = [];
+        // P1 (Host)
+        this.players.push(new Player(this, 1));
+        // P2 (Guest)
+        this.players.push(new Player(this, 2));
+    }
+
+    syncFromHost(data) {
+        // Update Game State from Host Data
+        if (data.enemies) {
+            this.enemies = data.enemies.map(e => {
+                const enemy = new Enemy(this, e.x, e.y);
+                // Can optimize by not recreating objects every frame, just updating xy
+                return enemy;
+            });
+        }
+        if (data.bullets) {
+            this.bullets = data.bullets.map(b => new Bullet(b.x, b.y, b.isEnemy ? 1 : -1, b.isEnemy, null));
+        }
+        if (data.p1) {
+            const p1 = this.players[0];
+            p1.x = data.p1.x;
+            p1.score = data.p1.score;
+            p1.lives = data.p1.lives;
+        }
+    }
+
+    syncFromGuest(data) {
+        // Update P2 from Guest Data
+        const p2 = this.players[1];
+        if (p2 && data) {
+            p2.x = data.x;
+            // Handle shooting?
+            if (data.shooting) p2.shoot();
+        }
+    }
+
+    update() {
+        if (this.state !== 'PLAYING') return;
+
+        // MULTIPLAYER SYNC
+        if (this.mode === 'MULTIPLAYER') {
+            this.networkManager.update();
+
+            // If Guest, I ONLY update my own input (P2) locally for prediction
+            // And render what Host sends.
+            if (this.networkManager.role === 'GUEST') {
+                this.updateHUD();
+                this.draw();
+                // Guest Input Logic
+                const p2 = this.players[1];
+                p2.updateInput(this.keys);
+                return; // SKIP normal game logic (physics/ai)
+            }
+        }
+
+        if (this.state === 'GAME_OVER' || this.state === 'PAUSED') return;
+
+        const now = Date.now();
+        const dt = (now - this.lastTime) / 1000;
+        this.lastTime = now;
+
+        // Clear canvas (Transparent to show CSS background)
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Update logic
+        this.networkManager.update(dt); // Keep network sync
+        this.updateGameLogic(dt);
+
+        this.draw();
+
         requestAnimationFrame(this.loop);
     }
 
@@ -85,10 +191,8 @@ class Game {
 
         const handleLogin = () => {
             const username = this.loginUser.value.trim();
-            const email = this.loginEmail.value.trim();
-            const pass = this.loginPass.value.trim();
 
-            if (username && email && pass) {
+            if (username) {
                 this.currentPlayerName = username.toUpperCase();
 
                 // Save Session
@@ -108,7 +212,7 @@ class Game {
                 }, 1000);
             } else {
                 this.loginMsg.style.color = 'var(--neon-red)';
-                this.loginMsg.innerText = "ACCESS DENIED. CREDENTIALS REQUIRED.";
+                this.loginMsg.innerText = "ACCESS DENIED. ID REQUIRED.";
 
                 // Shake effect
                 this.loginScreen.classList.add('shake');
@@ -118,7 +222,7 @@ class Game {
 
         this.btnLogin.addEventListener('click', handleLogin);
         // Allow Enter key to login
-        this.loginPass.addEventListener('keypress', (e) => {
+        this.loginUser.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') handleLogin();
         });
     }
@@ -347,11 +451,12 @@ class Game {
     }
 
     checkCollisions() {
-        // Bullets hitting Enemies or Players
+        // 1. Bullets hitting Enemies or Players
         this.bullets.forEach((b, bIndex) => {
             if (b.isEnemy) {
+                // Enemy Bullet hitting Player
                 this.players.forEach(p => {
-                    if (p.isDead) return; // Skip dead players
+                    if (p.isDead) return;
                     if (this.checkRectCollision(b, p)) {
                         this.createExplosion(p.x + p.width / 2, p.y + p.height / 2, p.color);
                         this.bullets.splice(bIndex, 1);
@@ -359,49 +464,57 @@ class Game {
                     }
                 });
             } else {
+                // Player Bullet hitting Enemy
                 this.enemies.forEach((e, eIndex) => {
                     if (this.checkRectCollision(b, e)) {
-                        this.createExplosion(e.x + e.width / 2, e.y + e.height / 2, '#39ff14');
+                        this.createExplosion(e.x + e.width / 2, e.y + e.height / 2, e.color || '#39ff14');
                         this.bullets.splice(bIndex, 1);
-                        this.enemies.splice(eIndex, 1);
-                        if (b.owner) {
-                            b.owner.score += 100;
-                            b.owner.hits++;
 
-                            // Floating text for HIT
-                            this.floatingTexts.push(new FloatingText(e.x, e.y, "HIT!", "#39ff14"));
-
-                            // 10% chance to revive a dead teammate
-                            if (Math.random() < 0.1) {
-                                const deadPlayers = this.players.filter(p => p.isDead);
-                                if (deadPlayers.length > 0) {
-                                    const revived = deadPlayers[Math.floor(Math.random() * deadPlayers.length)];
-                                    revived.isDead = false;
-                                    revived.lives = 1; // Revive with 1 life
-                                    revived.invulnerable = 120; // 2 seconds invulnerability
-                                    this.createExplosion(revived.x + revived.width / 2, revived.y + revived.height / 2, revived.color, 30);
-                                }
+                        // Boss Handling
+                        if (e instanceof Boss) {
+                            e.hp -= 10;
+                            this.floatingTexts.push(new FloatingText(e.x + e.width / 2, e.y, "-10", "#fff"));
+                            if (e.hp <= 0) {
+                                this.enemies.splice(eIndex, 1);
+                                this.createExplosion(e.x + e.width / 2, e.y + e.height / 2, e.color, 100);
+                                if (b.owner) b.owner.score += 5000;
                             }
+                        } else {
+                            // Regular Enemy
+                            this.enemies.splice(eIndex, 1);
+                            if (b.owner) b.owner.score += 100;
+                        }
 
-                            this.updateHUD();
+                        if (b.owner) b.owner.hits++;
+
+                        // Revive Mechanic (10% Chance)
+                        if (Math.random() < 0.1) {
+                            const deadPlayers = this.players.filter(p => p.isDead);
+                            if (deadPlayers.length > 0) {
+                                const revived = deadPlayers[Math.floor(Math.random() * deadPlayers.length)];
+                                revived.isDead = false;
+                                revived.lives = 1;
+                                revived.invulnerable = 120;
+                                this.createExplosion(revived.x + revived.width / 2, revived.y + revived.height / 2, revived.color, 30);
+                            }
                         }
                     }
                 });
             }
         });
 
-        // Enemies touching players
+        // 2. Enemies touching Players (Kamikaze)
         this.enemies.forEach(e => {
+            if (e.y + e.height >= CANVAS_HEIGHT) {
+                this.gameOver();
+            }
+
             this.players.forEach(p => {
-                if (p.isDead) return; // Skip dead players
+                if (p.isDead) return;
                 if (this.checkRectCollision(e, p)) {
                     this.playerHit(p);
                 }
             });
-
-            if (e.y + e.height >= CANVAS_HEIGHT) {
-                this.gameOver();
-            }
         });
     }
 
@@ -735,6 +848,87 @@ class Player {
     }
 }
 
+class Boss extends Enemy {
+    constructor(game, x, y, level) {
+        super(game, x, y);
+        this.width = 100; // Much bigger
+        this.height = 60;
+        this.level = level;
+        this.name = "BOSS";
+
+        // Stats based on level
+        if (level === 15) {
+            this.hp = 50;
+            this.color = '#ffaa00'; // Orange
+            this.name = "HIVE GUARDIAN";
+        } else if (level === 30) {
+            this.hp = 100;
+            this.color = '#ff0000'; // Red
+            this.name = "DREADNOUGHT";
+        } else if (level === 45) {
+            this.hp = 150;
+            this.color = '#ff00ff'; // Purple
+            this.name = "VOID CRUISER";
+        } else if (level === 50) {
+            this.hp = 500;
+            this.width = 150;
+            this.height = 80;
+            this.color = '#00ffff'; // Cyan
+            this.name = "THE MOTHERSHIP";
+        }
+        this.maxHp = this.hp;
+        this.moveSpeed = 2;
+        this.direction = 1;
+    }
+
+    update() {
+        // Boss sweeps back and forth
+        this.x += this.direction * this.moveSpeed;
+        if (this.x <= 0 || this.x + this.width >= CANVAS_WIDTH) {
+            this.direction *= -1;
+        }
+
+        // Boss Shooting Pattern
+        if (Math.random() < 0.05) { // 5% chance per frame (aggressive)
+            this.shoot();
+        }
+    }
+
+    shoot() {
+        // Triple Shot
+        const centerX = this.x + this.width / 2;
+        const bottomY = this.y + this.height;
+
+        this.game.bullets.push(new Bullet(centerX, bottomY, 1, true, null));
+        this.game.bullets.push(new Bullet(centerX - 20, bottomY, 1, true, null)); // Angled left? (Simplified to straight for now)
+        this.game.bullets.push(new Bullet(centerX + 20, bottomY, 1, true, null));
+    }
+
+    draw(ctx) {
+        // Draw Boss Body
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+
+        // Draw Health Bar
+        const barWidth = this.width;
+        const barHeight = 5;
+        const healthPercent = this.hp / this.maxHp;
+
+        ctx.fillStyle = '#333';
+        ctx.fillRect(this.x, this.y - 10, barWidth, barHeight);
+
+        ctx.fillStyle = '#00ff00';
+        ctx.fillRect(this.x, this.y - 10, barWidth * healthPercent, barHeight);
+
+        // Draw Name
+        ctx.fillStyle = '#fff';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.name, this.x + this.width / 2, this.y - 15);
+        ctx.textAlign = 'left'; // Reset
+    }
+}
+
 class Enemy {
     constructor(game, x, y) {
         this.game = game;
@@ -888,8 +1082,15 @@ class HighScoreManager {
     }
 
     async loadScores() {
+        const statusEl = document.getElementById('connectionStatus');
+
         if (this.useCloud) {
             try {
+                if (statusEl) {
+                    statusEl.innerText = "📡 SECTOR DATALINK: ESTABLISHED";
+                    statusEl.style.color = "#39ff14";
+                }
+
                 const snapshot = await window.db.collection('scores')
                     .orderBy('score', 'desc')
                     .limit(5)
@@ -899,9 +1100,15 @@ class HighScoreManager {
                 this.render();
             } catch (e) {
                 console.error("Error loading cloud scores:", e);
+                if (statusEl) {
+                    statusEl.innerText = "⚠️ DATALINK ERROR: OFFLINE MODE";
+                    statusEl.style.color = "var(--neon-red)";
+                }
                 this.loadLocal(); // Fallback
             }
         } else {
+            console.warn("Cloud DB not found in window.db");
+            if (statusEl) statusEl.innerText = "⚠️ NO LINK: LOCAL MODE ONLY";
             this.loadLocal();
         }
     }
@@ -916,17 +1123,38 @@ class HighScoreManager {
     }
 
     async saveScore(name, score) {
-        const newEntry = { name, score, date: Date.now() };
-
         if (this.useCloud) {
             try {
-                await window.db.collection('scores').add(newEntry);
+                const scoresRef = window.db.collection('scores');
+                const query = await scoresRef.where('name', '==', name).get();
+
+                if (!query.empty) {
+                    // User exists, check if new score is higher
+                    const doc = query.docs[0];
+                    const data = doc.data();
+                    if (score > data.score) {
+                        await scoresRef.doc(doc.id).update({ score: score, date: Date.now() });
+                    }
+                } else {
+                    // New user
+                    await scoresRef.add({ name, score, date: Date.now() });
+                }
+
                 await this.loadScores(); // Refresh
             } catch (e) {
                 console.error("Error saving to cloud:", e);
             }
         } else {
-            this.scores.push(newEntry);
+            // Local fallback logic (simple)
+            const existingIndex = this.scores.findIndex(s => s.name === name);
+            if (existingIndex !== -1) {
+                if (score > this.scores[existingIndex].score) {
+                    this.scores[existingIndex].score = score;
+                }
+            } else {
+                this.scores.push({ name, score, date: Date.now() });
+            }
+
             this.scores.sort((a, b) => b.score - a.score);
             this.scores = this.scores.slice(0, 5);
             localStorage.setItem('spaceInvadersScores', JSON.stringify(this.scores));
@@ -949,4 +1177,3 @@ class HighScoreManager {
             .join('');
     }
 }
-

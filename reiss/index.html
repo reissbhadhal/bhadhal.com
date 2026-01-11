@@ -65,8 +65,6 @@
             <h1 style="font-size: 2.5rem; margin-bottom: 40px;">SECURITY CHECKPOINT</h1>
             <div class="login-form">
                 <input type="text" id="loginUser" placeholder="ENTER PILOT NAME" autocomplete="off">
-                <input type="email" id="loginEmail" placeholder="ENTER EMAIL ADDRESS" autocomplete="off">
-                <input type="password" id="loginPass" placeholder="ENTER ACCESS CODE">
                 <button id="btnLogin">INITIALIZE UPLINK</button>
             </div>
             <p style="margin-top: 20px; font-size: 0.8rem; color: var(--neon-red);" id="loginMsg"></p>
@@ -89,6 +87,8 @@
             <div id="connectionStatus" style="font-size: 0.8rem; color: #666; margin-bottom: 10px;">CONNECTING TO
                 SATELLITE...</div>
 
+            <button id="btnSocial" class="social-btn">👥 SOCIAL HUB</button>
+
             <div class="controls-hint" style="flex-direction: column; gap: 10px;">
                 <div style="color: #00ffff">P1: ← → ↑ ↓ MOVE | SPACE SHOOT</div>
                 <div style="color: #ffaa00">P2: A D W S MOVE | F SHOOT</div>
@@ -101,7 +101,26 @@
             </div>
         </div>
 
-        <div id="gameOverScreen" class="overlay hidden">
+        <div id="socialOverlay" class="overlay hidden">
+            <h2>🌍 SOCIAL DATALINK</h2>
+            <div class="social-container">
+                <div class="add-friend-section">
+                    <input type="text" id="friendInput" placeholder="ENTER USERNAME..." autocomplete="off">
+                    <button id="btnAddFriend">ADD</button>
+                    <button id="btnCloseSocial" style="background: #333;">CLOSE</button>
+                </div>
+                <p id="socialMsg" style="font-size: 0.8rem; margin: 5px 0; min-height: 1.2em;"></p>
+                <div class="friend-list-container">
+                    <h3>ALLIES ESTABLISHED</h3>
+                    <ul id="friendList">
+                        <!-- Friend items will go here -->
+                        <li style="color: #666; font-style: italic;">NO ALLIES FOUND</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="gameOverScreen" class="overlay hidden" onclick="location.reload()">
             <h1 class="danger">GAME OVER</h1>
             <p>FINAL SCORE: <span id="finalScore">0</span></p>
             <div id="gameStats" style="margin: 15px 0; font-family: 'Share Tech Mono', monospace; font-size: 0.9rem;">
@@ -151,7 +170,9 @@
             console.warn("Firebase Config missing! Leaderboard will be offline.");
         }
     </script>
-    <script src="game.js?v=2.0"></script>
+    <script src="SocialManager.js"></script>
+    <script src="NetworkManager.js"></script>
+    <script src="game.js?v=4.2"></script>
 </body>
 
 </html>
