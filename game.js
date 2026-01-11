@@ -8,13 +8,18 @@ const ENEMY_SPEED = 1;
 const ENEMY_DROP_DISTANCE = 20;
 
 const BG_GRADIENTS = [
-    'radial-gradient(circle at center, #1a1a2e 0%, #050510 100%)', // Lvl 1: Deep Blue
-    'radial-gradient(circle at center, #2e1a2e 0%, #100510 100%)', // Lvl 2: Purple Mist
-    'radial-gradient(circle at center, #2e1a1a 0%, #100505 100%)', // Lvl 3: Red Alert
-    'radial-gradient(circle at center, #1a2e1a 0%, #051005 100%)', // Lvl 4: Toxic Green
-    'radial-gradient(circle at center, #2e2e1a 0%, #101005 100%)', // Lvl 5: Golden
-    'radial-gradient(circle at center, #1a2e2e 0%, #051010 100%)', // Lvl 6: Cyan Deep
-    'radial-gradient(circle at center, #000000 0%, #1a1a1a 100%)', // Lvl 7: Void
+    'radial-gradient(circle at center, #0f0c29, #302b63, #24243e)', // Lvl 1: Deep Space (Purple/Blue)
+    'linear-gradient(to bottom, #000428, #004e92)', // Lvl 2: Stratosphere (Blue)
+    'radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%)', // Lvl 3: The Void (Dark)
+    'linear-gradient(135deg, #4b6cb7 0%, #182848 100%)', // Lvl 4: Nebula (Blue/Grey)
+    'radial-gradient(circle at 50% 50%, #203a43, #2c5364)', // Lvl 5: Teal Horizon
+    'linear-gradient(to top, #c02425, #f0cb35)', // Lvl 6: Solar Flare (Red/Gold) - Intense!
+    'radial-gradient(circle at top, #232526, #414345)', // Lvl 7: Asteroid Belt (Grey/Black)
+    'linear-gradient(45deg, #8e2de2, #4a00e0)', // Lvl 8: Plasma Storm (Neon Purple)
+    'radial-gradient(circle at bottom, #0f2027, #203a43, #2c5364)', // Lvl 9: Cyber City (Green/Blue)
+    'linear-gradient(to right, #243949 0%, #517fa4 100%)', // Lvl 10: Steel Sky
+    'radial-gradient(circle, #5f2c82, #49a09d)', // Lvl 11: Aurora (Green/Pink)
+    'linear-gradient(to bottom, #000000, #434343)', // Lvl 12: Event Horizon (Pitch Black)
 ];
 
 class Game {
