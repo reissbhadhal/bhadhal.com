@@ -38,8 +38,6 @@ class Game {
         this.statsElement = document.getElementById('gameStats');
         this.loginScreen = document.getElementById('loginScreen');
         this.loginUser = document.getElementById('loginUser');
-        this.loginEmail = document.getElementById('loginEmail');
-        this.loginPass = document.getElementById('loginPass');
         this.btnLogin = document.getElementById('btnLogin');
         this.loginMsg = document.getElementById('loginMsg');
 
@@ -193,10 +191,8 @@ class Game {
 
         const handleLogin = () => {
             const username = this.loginUser.value.trim();
-            const email = this.loginEmail.value.trim();
-            const pass = this.loginPass.value.trim();
 
-            if (username && email && pass) {
+            if (username) {
                 this.currentPlayerName = username.toUpperCase();
 
                 // Save Session
@@ -216,7 +212,7 @@ class Game {
                 }, 1000);
             } else {
                 this.loginMsg.style.color = 'var(--neon-red)';
-                this.loginMsg.innerText = "ACCESS DENIED. CREDENTIALS REQUIRED.";
+                this.loginMsg.innerText = "ACCESS DENIED. ID REQUIRED.";
 
                 // Shake effect
                 this.loginScreen.classList.add('shake');
@@ -226,7 +222,7 @@ class Game {
 
         this.btnLogin.addEventListener('click', handleLogin);
         // Allow Enter key to login
-        this.loginPass.addEventListener('keypress', (e) => {
+        this.loginUser.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') handleLogin();
         });
     }
