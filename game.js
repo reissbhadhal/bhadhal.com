@@ -929,17 +929,38 @@ class HighScoreManager {
     }
 
     async saveScore(name, score) {
-        const newEntry = { name, score, date: Date.now() };
-
         if (this.useCloud) {
             try {
-                await window.db.collection('scores').add(newEntry);
+                const scoresRef = window.db.collection('scores');
+                const query = await scoresRef.where('name', '==', name).get();
+
+                if (!query.empty) {
+                    // User exists, check if new score is higher
+                    const doc = query.docs[0];
+                    const data = doc.data();
+                    if (score > data.score) {
+                        await scoresRef.doc(doc.id).update({ score: score, date: Date.now() });
+                    }
+                } else {
+                    // New user
+                    await scoresRef.add({ name, score, date: Date.now() });
+                }
+
                 await this.loadScores(); // Refresh
             } catch (e) {
                 console.error("Error saving to cloud:", e);
             }
         } else {
-            this.scores.push(newEntry);
+            // Local fallback logic (simple)
+            const existingIndex = this.scores.findIndex(s => s.name === name);
+            if (existingIndex !== -1) {
+                if (score > this.scores[existingIndex].score) {
+                    this.scores[existingIndex].score = score;
+                }
+            } else {
+                this.scores.push({ name, score, date: Date.now() });
+            }
+
             this.scores.sort((a, b) => b.score - a.score);
             this.scores = this.scores.slice(0, 5);
             localStorage.setItem('spaceInvadersScores', JSON.stringify(this.scores));
