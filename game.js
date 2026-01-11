@@ -451,11 +451,12 @@ class Game {
     }
 
     checkCollisions() {
-        // Bullets hitting Enemies or Players
+        // 1. Bullets hitting Enemies or Players
         this.bullets.forEach((b, bIndex) => {
             if (b.isEnemy) {
+                // Enemy Bullet hitting Player
                 this.players.forEach(p => {
-                    if (p.isDead) return; // Skip dead players
+                    if (p.isDead) return;
                     if (this.checkRectCollision(b, p)) {
                         this.createExplosion(p.x + p.width / 2, p.y + p.height / 2, p.color);
                         this.bullets.splice(bIndex, 1);
@@ -463,208 +464,198 @@ class Game {
                     }
                 });
             } else {
+                // Player Bullet hitting Enemy
                 this.enemies.forEach((e, eIndex) => {
                     if (this.checkRectCollision(b, e)) {
                         this.createExplosion(e.x + e.width / 2, e.y + e.height / 2, e.color || '#39ff14');
                         this.bullets.splice(bIndex, 1);
 
+                        // Boss Handling
                         if (e instanceof Boss) {
-                            e.hp -= 10; // Boss takes 10 damage
+                            e.hp -= 10;
                             this.floatingTexts.push(new FloatingText(e.x + e.width / 2, e.y, "-10", "#fff"));
                             if (e.hp <= 0) {
                                 this.enemies.splice(eIndex, 1);
-                                this.createExplosion(e.x + e.width / 2, e.y + e.height / 2, e.color, 100); // Big Boom
-                                if (b.owner) b.owner.score += 5000; // Big Points
+                                this.createExplosion(e.x + e.width / 2, e.y + e.height / 2, e.color, 100);
+                                if (b.owner) b.owner.score += 5000;
                             }
                         } else {
+                            // Regular Enemy
                             this.enemies.splice(eIndex, 1);
-                            if (b.owner) {
-                                b.owner.score += 100;
-                            }
+                            if (b.owner) b.owner.score += 100;
                         }
 
-                        if (b.owner) {
-                            b.owner.hits++;
-                        }
+                        if (b.owner) b.owner.hits++;
 
-                        // Floating text for HIT
-                        if (!(e instanceof Boss) || e.hp <= 0) { // Only show HIT! text for kills
-                            // this.floatingTexts.push(new FloatingText(e.x, e.y, "HIT!", "#39ff14"));
-                        }
-
-                        // 10% chance to revive
-
+                        // Revive Mechanic (10% Chance)
                         if (Math.random() < 0.1) {
                             const deadPlayers = this.players.filter(p => p.isDead);
                             if (deadPlayers.length > 0) {
                                 const revived = deadPlayers[Math.floor(Math.random() * deadPlayers.length)];
                                 revived.isDead = false;
-                                revived.lives = 1; // Revive with 1 life
-                                revived.invulnerable = 120; // 2 seconds invulnerability
+                                revived.lives = 1;
+                                revived.invulnerable = 120;
                                 this.createExplosion(revived.x + revived.width / 2, revived.y + revived.height / 2, revived.color, 30);
                             }
                         }
-
-                        this.updateHUD();
                     }
-                }
                 });
-    }
-});
-
-// Enemies touching players
-this.enemies.forEach(e => {
-    this.players.forEach(p => {
-        if (p.isDead) return; // Skip dead players
-        if (this.checkRectCollision(e, p)) {
-            this.playerHit(p);
-        }
-    });
-
-    if (e.y + e.height >= CANVAS_HEIGHT) {
-        this.gameOver();
-    }
-});
-    }
-
-checkRectCollision(r1, r2) {
-    return r1.x < r2.x + r2.width &&
-        r1.x + r1.width > r2.x &&
-        r1.y < r2.y + r2.height &&
-        r1.y + r1.height > r2.y;
-}
-
-playerHit(player) {
-    // Prevent instant multiple hits from same frame?
-    if (player.invulnerable > 0) return;
-
-    player.lives--;
-    player.invulnerable = 60; // 60 frames (1 sec) invulnerability
-
-    this.updateHUD();
-    this.createExplosion(player.x + player.width / 2, player.y + player.height / 2, '#ff00ff', 20);
-
-    if (player.lives <= 0) {
-        player.isDead = true;
-        // Do NOT splice, keep for stats
-    }
-
-    // Check if all dead
-    if (this.players.every(p => p.isDead)) {
-        this.gameOver();
-    }
-}
-
-statsScore(points) {
-    this.score += points;
-    this.updateHUD();
-}
-
-updateHUD() {
-    let scoreText = `LVL ${this.level}`;
-
-    if (this.players.length > 0) {
-        let livesText = "";
-        let pScores = "  |  ";
-
-        this.players.forEach(p => {
-            const livesDisplay = p.isDead ? "DEAD" : p.lives;
-            livesText += `P${p.id}: ${livesDisplay}  `;
-            pScores += `P${p.id}: ${p.score}  `;
-        });
-        this.livesElement.innerText = livesText;
-        this.scoreElement.innerText = scoreText + pScores;
-    } else {
-        this.livesElement.innerText = "DEAD";
-        this.scoreElement.innerText = scoreText + "  |  GAME OVER";
-    }
-
-    if (this.timerElement) {
-        this.timerElement.innerText = Math.ceil(this.gameTime);
-    }
-}
-
-gameOver() {
-    this.state = 'GAMEOVER';
-    this.gameOverScreen.classList.remove('hidden');
-
-    // Find Winner
-    let winnerHtml = "";
-    if (this.numPlayers > 1) {
-        let maxScore = -1;
-        let winner = null;
-        let tie = false;
-
-        this.players.forEach(p => {
-            if (p.score > maxScore) {
-                maxScore = p.score;
-                winner = p;
-                tie = false;
-            } else if (p.score === maxScore) {
-                tie = true;
             }
         });
 
-        if (tie) {
-            winnerHtml = `<h2 style="color: #ffffff; text-align:center; margin-bottom:10px;">IT'S A DRAW!</h2>`;
-        } else if (winner) {
-            const color = winner.id === 1 ? '#00ffff' : (winner.isCpu ? '#ff00ff' : '#ffaa00');
-            const name = winner.isCpu ? "CPU" : `PLAYER ${winner.id}`;
-            winnerHtml = `<h2 style="color: ${color}; text-align:center; margin-bottom:10px;">${name} WINS! 🏆</h2>`;
+        // 2. Enemies touching Players (Kamikaze)
+        this.enemies.forEach(e => {
+            if (e.y + e.height >= CANVAS_HEIGHT) {
+                this.gameOver();
+            }
+
+            this.players.forEach(p => {
+                if (p.isDead) return;
+                if (this.checkRectCollision(e, p)) {
+                    this.playerHit(p);
+                }
+            });
+        });
+    }
+
+    checkRectCollision(r1, r2) {
+        return r1.x < r2.x + r2.width &&
+            r1.x + r1.width > r2.x &&
+            r1.y < r2.y + r2.height &&
+            r1.y + r1.height > r2.y;
+    }
+
+    playerHit(player) {
+        // Prevent instant multiple hits from same frame?
+        if (player.invulnerable > 0) return;
+
+        player.lives--;
+        player.invulnerable = 60; // 60 frames (1 sec) invulnerability
+
+        this.updateHUD();
+        this.createExplosion(player.x + player.width / 2, player.y + player.height / 2, '#ff00ff', 20);
+
+        if (player.lives <= 0) {
+            player.isDead = true;
+            // Do NOT splice, keep for stats
+        }
+
+        // Check if all dead
+        if (this.players.every(p => p.isDead)) {
+            this.gameOver();
         }
     }
 
-    // Total score (sum of all player scores)
-    const totalScore = this.players.reduce((sum, p) => sum + p.score, 0);
-    this.finalScoreElement.innerText = totalScore;
+    statsScore(points) {
+        this.score += points;
+        this.updateHUD();
+    }
 
-    // Generate stats HTML
-    let statsHtml = winnerHtml;
-    this.players.forEach(p => {
-        const totalShots = p.hits + p.misses;
-        const acc = totalShots > 0 ? Math.round((p.hits / totalShots) * 100) : 0;
-        const color = p.id === 1 ? '#00ffff' : (p.isCpu ? '#ff00ff' : '#ffaa00');
+    updateHUD() {
+        let scoreText = `LVL ${this.level}`;
 
-        statsHtml += `<div style="color: ${color}; margin-bottom: 5px;">
+        if (this.players.length > 0) {
+            let livesText = "";
+            let pScores = "  |  ";
+
+            this.players.forEach(p => {
+                const livesDisplay = p.isDead ? "DEAD" : p.lives;
+                livesText += `P${p.id}: ${livesDisplay}  `;
+                pScores += `P${p.id}: ${p.score}  `;
+            });
+            this.livesElement.innerText = livesText;
+            this.scoreElement.innerText = scoreText + pScores;
+        } else {
+            this.livesElement.innerText = "DEAD";
+            this.scoreElement.innerText = scoreText + "  |  GAME OVER";
+        }
+
+        if (this.timerElement) {
+            this.timerElement.innerText = Math.ceil(this.gameTime);
+        }
+    }
+
+    gameOver() {
+        this.state = 'GAMEOVER';
+        this.gameOverScreen.classList.remove('hidden');
+
+        // Find Winner
+        let winnerHtml = "";
+        if (this.numPlayers > 1) {
+            let maxScore = -1;
+            let winner = null;
+            let tie = false;
+
+            this.players.forEach(p => {
+                if (p.score > maxScore) {
+                    maxScore = p.score;
+                    winner = p;
+                    tie = false;
+                } else if (p.score === maxScore) {
+                    tie = true;
+                }
+            });
+
+            if (tie) {
+                winnerHtml = `<h2 style="color: #ffffff; text-align:center; margin-bottom:10px;">IT'S A DRAW!</h2>`;
+            } else if (winner) {
+                const color = winner.id === 1 ? '#00ffff' : (winner.isCpu ? '#ff00ff' : '#ffaa00');
+                const name = winner.isCpu ? "CPU" : `PLAYER ${winner.id}`;
+                winnerHtml = `<h2 style="color: ${color}; text-align:center; margin-bottom:10px;">${name} WINS! 🏆</h2>`;
+            }
+        }
+
+        // Total score (sum of all player scores)
+        const totalScore = this.players.reduce((sum, p) => sum + p.score, 0);
+        this.finalScoreElement.innerText = totalScore;
+
+        // Generate stats HTML
+        let statsHtml = winnerHtml;
+        this.players.forEach(p => {
+            const totalShots = p.hits + p.misses;
+            const acc = totalShots > 0 ? Math.round((p.hits / totalShots) * 100) : 0;
+            const color = p.id === 1 ? '#00ffff' : (p.isCpu ? '#ff00ff' : '#ffaa00');
+
+            statsHtml += `<div style="color: ${color}; margin-bottom: 5px;">
                  P${p.id}${p.isCpu ? ' (CPU)' : ''}: ${p.score} pts<br>
                  HITS: ${p.hits} | MISSES: ${p.misses} | ACC: ${acc}%
              </div>`;
-    });
-    this.statsElement.innerHTML = statsHtml;
+        });
+        this.statsElement.innerHTML = statsHtml;
 
-    // Save High Scores
-    this.players.forEach(p => {
-        if (p.score > 0) {
-            const name = p.isCpu ? "CPU COMMANDER" : (p.id === 1 ? this.currentPlayerName : `PLAYER ${p.id}`);
-            this.highScoreManager.saveScore(name, p.score);
+        // Save High Scores
+        this.players.forEach(p => {
+            if (p.score > 0) {
+                const name = p.isCpu ? "CPU COMMANDER" : (p.id === 1 ? this.currentPlayerName : `PLAYER ${p.id}`);
+                this.highScoreManager.saveScore(name, p.score);
+            }
+        });
+    }
+
+    createExplosion(x, y, color, count = 10) {
+        for (let i = 0; i < count; i++) {
+            this.particles.push(new Particle(x, y, color));
         }
-    });
-}
-
-createExplosion(x, y, color, count = 10) {
-    for (let i = 0; i < count; i++) {
-        this.particles.push(new Particle(x, y, color));
     }
-}
 
-draw() {
-    this.ctx.fillStyle = '#050510';
-    this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    draw() {
+        this.ctx.fillStyle = '#050510';
+        this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    if (this.state === 'PLAYING') {
-        this.players.forEach(p => p.draw(this.ctx));
-        this.enemies.forEach(e => e.draw(this.ctx));
-        this.bullets.forEach(b => b.draw(this.ctx));
-        this.particles.forEach(p => p.draw(this.ctx));
-        this.floatingTexts.forEach(t => t.draw(this.ctx));
+        if (this.state === 'PLAYING') {
+            this.players.forEach(p => p.draw(this.ctx));
+            this.enemies.forEach(e => e.draw(this.ctx));
+            this.bullets.forEach(b => b.draw(this.ctx));
+            this.particles.forEach(p => p.draw(this.ctx));
+            this.floatingTexts.forEach(t => t.draw(this.ctx));
+        }
     }
-}
 
-loop() {
-    this.update();
-    this.draw();
-    requestAnimationFrame(this.loop);
-}
+    loop() {
+        this.update();
+        this.draw();
+        requestAnimationFrame(this.loop);
+    }
 }
 
 class Player {
