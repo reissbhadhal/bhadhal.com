@@ -76,22 +76,23 @@ class RaceNetworkManager {
             // Host sends their car (P1) state
             this.db.collection('race_lobbies').doc(this.lobbyId).update({
                 p1: {
-                    x: Math.round(this.game.car.x),
-                    y: Math.round(this.game.car.y),
+                    x: this.game.car.x,
+                    z: this.game.car.z,
                     angle: this.game.car.angle,
-                    speed: this.game.car.speed
+                    speed: this.game.car.speed,
+                    color: this.game.car.color
                 },
                 updatedAt: now
             });
         } else {
-            // Guest sends their car (P2) state (we need to double check if P2 exists in game yet)
-            // For simplest MVP, Host is Blue, Guest is Red.
+            // Guest sends their car (P2) state
             this.db.collection('race_lobbies').doc(this.lobbyId).update({
                 p2: {
-                    x: Math.round(this.game.car.x),
-                    y: Math.round(this.game.car.y),
+                    x: this.game.car.x,
+                    z: this.game.car.z,
                     angle: this.game.car.angle,
-                    speed: this.game.car.speed
+                    speed: this.game.car.speed,
+                    color: this.game.car.color
                 },
                 guestUpdated: now
             });
@@ -105,19 +106,31 @@ class RaceNetworkManager {
             const data = doc.data();
             if (!data) return;
 
-            if (this.role === 'HOST' && data.p2) {
-                // Update P2 (Guest Car)
+            let targetData = null;
+            if (this.role === 'HOST' && data.p2) targetData = data.p2;
+            else if (this.role === 'GUEST' && data.p1) targetData = data.p1;
+
+            if (targetData) {
+                // Update Opponent
                 if (this.game.opponentCar) {
-                    this.game.opponentCar.x = data.p2.x;
-                    this.game.opponentCar.y = data.p2.y;
-                    this.game.opponentCar.angle = data.p2.angle;
-                }
-            } else if (this.role === 'GUEST' && data.p1) {
-                // Update P1 (Host Car)
-                if (this.game.opponentCar) {
-                    this.game.opponentCar.x = data.p1.x;
-                    this.game.opponentCar.y = data.p1.y;
-                    this.game.opponentCar.angle = data.p1.angle;
+                    this.game.opponentCar.x = targetData.x;
+                    this.game.opponentCar.z = targetData.z;
+                    this.game.opponentCar.angle = targetData.angle;
+
+                    // Update Mesh Position
+                    if (this.game.opponentCar.mesh) {
+                        this.game.opponentCar.mesh.position.x = targetData.x;
+                        this.game.opponentCar.mesh.position.z = targetData.z;
+                        this.game.opponentCar.mesh.rotation.y = targetData.angle;
+                    }
+
+                    // Sync Color/Appearance if changed
+                    if (targetData.color && this.game.opponentCar.color !== targetData.color) {
+                        this.game.opponentCar.color = targetData.color;
+                        if (this.game.updateOpponentCar) {
+                            this.game.updateOpponentCar(targetData.color);
+                        }
+                    }
                 }
             }
         });
