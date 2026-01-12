@@ -1,12 +1,12 @@
-// Constants
 
-        // Constants
+// Constants
 const CANVAS_WIDTH = 600;
 const CANVAS_HEIGHT = 800;
 const PLAYER_SPEED = 10;
 const BULLET_SPEED = 15;
 const ENEMY_SPEED = 1;
 const ENEMY_DROP_DISTANCE = 20;
+
 const BG_GRADIENTS = [
     'radial-gradient(circle at center, #0f0c29, #302b63, #24243e)', // Lvl 1: Deep Space (Purple/Blue)
     'linear-gradient(to bottom, #000428, #004e92)', // Lvl 2: Stratosphere (Blue)
@@ -21,9 +21,11 @@ const BG_GRADIENTS = [
     'radial-gradient(circle, #5f2c82, #49a09d)', // Lvl 11: Aurora (Green/Pink)
     'linear-gradient(to bottom, #000000, #434343)', // Lvl 12: Event Horizon (Pitch Black)
 ];
+
 // ----------------------
 // HELPER CLASSES
 // ----------------------
+
 class HighScoreManager {
     constructor() {
         this.scores = [];
@@ -31,19 +33,36 @@ class HighScoreManager {
         this.render();
         this.loadScores();
     }
+
     async loadScores() {
         const statusEl = document.getElementById('connectionStatus');
+
         if (this.useCloud) {
             try {
                 if (statusEl) {
                     statusEl.innerText = "📡 SECTOR DATALINK: ESTABLISHED";
                     statusEl.style.color = "#39ff14";
                 }
+
                 const snapshot = await window.db.collection('scores')
                     .orderBy('score', 'desc')
-                    .limit(5)
+                    .limit(50)
                     .get();
-                this.scores = snapshot.docs.map(doc => doc.data());
+
+                const allScores = snapshot.docs.map(doc => doc.data());
+
+                // Deduplicate: Keep only the first (highest) entry for each unique name
+                const uniqueScores = [];
+                const seen = new Set();
+
+                for (const s of allScores) {
+                    if (!seen.has(s.name)) {
+                        seen.add(s.name);
+                        uniqueScores.push(s);
+                    }
+                }
+
+                this.scores = uniqueScores.slice(0, 5);
                 this.render();
             } catch (e) {
                 console.error("Error loading cloud scores:", e);
@@ -59,6 +78,7 @@ class HighScoreManager {
             this.loadLocal();
         }
     }
+
     loadLocal() {
         this.scores = JSON.parse(localStorage.getItem('spaceInvadersScores')) || [
             { name: "CPU COMMANDER", score: 5000 },
@@ -67,11 +87,13 @@ class HighScoreManager {
         ];
         this.render();
     }
+
     async saveScore(name, score) {
         if (this.useCloud) {
             try {
                 const scoresRef = window.db.collection('scores');
                 const query = await scoresRef.where('name', '==', name).get();
+
                 if (!query.empty) {
                     // User exists, check if new score is higher
                     const doc = query.docs[0];
@@ -83,6 +105,7 @@ class HighScoreManager {
                     // New user
                     await scoresRef.add({ name, score, date: Date.now() });
                 }
+
                 await this.loadScores(); // Refresh
             } catch (e) {
                 console.error("Error saving to cloud:", e);
@@ -97,15 +120,18 @@ class HighScoreManager {
             } else {
                 this.scores.push({ name, score, date: Date.now() });
             }
+
             this.scores.sort((a, b) => b.score - a.score);
             this.scores = this.scores.slice(0, 5);
             localStorage.setItem('spaceInvadersScores', JSON.stringify(this.scores));
             this.render();
         }
     }
+
     render() {
         const list = document.getElementById('scoreList');
         if (!list) return;
+
         list.innerHTML = this.scores
             .map((s, i) => `
                 <li>
@@ -117,6 +143,7 @@ class HighScoreManager {
             .join('');
     }
 }
+
 class FloatingText {
     constructor(x, y, text, color) {
         this.x = x;
@@ -126,10 +153,12 @@ class FloatingText {
         this.life = 60; // 1 second
         this.velocity = -1; // float up
     }
+
     update() {
         this.y += this.velocity;
         this.life--;
     }
+
     draw(ctx) {
         ctx.save();
         ctx.fillStyle = this.color;
@@ -141,6 +170,7 @@ class FloatingText {
         ctx.restore();
     }
 }
+
 class Particle {
     constructor(x, y, color) {
         this.x = x;
@@ -151,12 +181,14 @@ class Particle {
         this.color = color;
         this.life = 100;
     }
+
     update() {
         this.x += this.speedX;
         this.y += this.speedY;
         this.life -= 2;
         this.size *= 0.95;
     }
+
     draw(ctx) {
         ctx.fillStyle = this.color;
         ctx.globalAlpha = this.life / 100;
@@ -166,6 +198,7 @@ class Particle {
         ctx.globalAlpha = 1;
     }
 }
+
 class Bullet {
     constructor(x, y, direction, isEnemy, owner) {
         this.x = x - 2;
@@ -177,9 +210,11 @@ class Bullet {
         this.owner = owner;
         this.color = isEnemy ? '#ff00ff' : '#00ffff';
     }
+
     update() {
         this.y += this.direction * BULLET_SPEED;
     }
+
     draw(ctx) {
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
@@ -189,9 +224,11 @@ class Bullet {
         ctx.shadowBlur = 0;
     }
 }
+
 // ----------------------
 // GAME ENTITIES
 // ----------------------
+
 class Enemy {
     constructor(game, x, y) {
         this.game = game;
@@ -201,16 +238,21 @@ class Enemy {
         this.y = y;
         this.color = '#39ff14';
     }
+
     update(direction) {
         this.x += direction * ENEMY_SPEED;
     }
+
     shoot() {
         this.game.bullets.push(new Bullet(this.x + this.width / 2, this.y + this.height, 1, true, null));
     }
+
     draw(ctx) {
         ctx.fillStyle = this.color;
+
         // Pixel art "invader" using 5x5 grid approx
         const pSize = this.width / 11; // 11 pixels wide
+
         const shape = [
             [2, 8],
             [3, 7],
@@ -221,17 +263,20 @@ class Enemy {
             [0, 2, 8, 10],
             [3, 4, 6, 7]
         ];
+
         shape.forEach((row, rowIndex) => {
             row.forEach(colIndex => {
                 ctx.fillRect(this.x + colIndex * pSize, this.y + rowIndex * pSize, pSize, pSize);
             });
         });
+
         ctx.shadowBlur = 5;
         ctx.shadowColor = this.color;
         ctx.fill(); // Context fill doesn't help rects but shadow works
         ctx.shadowBlur = 0;
     }
 }
+
 class Boss extends Enemy {
     constructor(game, x, y, level) {
         super(game, x, y);
@@ -239,6 +284,7 @@ class Boss extends Enemy {
         this.height = 60;
         this.level = level;
         this.name = "BOSS";
+
         // Stats based on level
         if (level === 15) {
             this.hp = 50;
@@ -263,37 +309,46 @@ class Boss extends Enemy {
         this.moveSpeed = 2;
         this.direction = 1;
     }
+
     update() {
         // Boss sweeps back and forth
         this.x += this.direction * this.moveSpeed;
         if (this.x <= 0 || this.x + this.width >= CANVAS_WIDTH) {
             this.direction *= -1;
         }
+
         // Boss Shooting Pattern
         if (Math.random() < 0.05) { // 5% chance per frame (aggressive)
             this.shoot();
         }
     }
+
     shoot() {
         // Triple Shot
         const centerX = this.x + this.width / 2;
         const bottomY = this.y + this.height;
+
         this.game.bullets.push(new Bullet(centerX, bottomY, 1, true, null));
         this.game.bullets.push(new Bullet(centerX - 20, bottomY, 1, true, null)); // Angled left? (Simplified to straight for now)
         this.game.bullets.push(new Bullet(centerX + 20, bottomY, 1, true, null));
     }
+
     draw(ctx) {
         // Draw Boss Body
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
+
         // Draw Health Bar
         const barWidth = this.width;
         const barHeight = 5;
         const healthPercent = this.hp / this.maxHp;
+
         ctx.fillStyle = '#333';
         ctx.fillRect(this.x, this.y - 10, barWidth, barHeight);
+
         ctx.fillStyle = '#00ff00';
         ctx.fillRect(this.x, this.y - 10, barWidth * healthPercent, barHeight);
+
         // Draw Name
         ctx.fillStyle = '#fff';
         ctx.font = '10px monospace';
@@ -302,6 +357,7 @@ class Boss extends Enemy {
         ctx.textAlign = 'left'; // Reset
     }
 }
+
 class Player {
     constructor(game, id, isCpu = false) {
         this.game = game;
@@ -311,6 +367,7 @@ class Player {
         this.isCpu = isCpu;
         this.width = 40;
         this.height = 20;
+
         this.lives = 5;
         this.score = 0;
         this.hits = 0;
@@ -318,6 +375,7 @@ class Player {
         this.misses = 0;
         this.invulnerable = 0;
         this.isDead = false;
+
         if (this.game.numPlayers === 1) {
             this.x = CANVAS_WIDTH / 2 - this.width / 2;
             this.color = '#00ffff';
@@ -343,8 +401,10 @@ class Player {
                 this.color = '#39ff14'; // Neon Green
             }
         }
+
         this.y = CANVAS_HEIGHT - 50;
     }
+
     resetPosition() {
         if (this.game.numPlayers === 1) {
             this.x = CANVAS_WIDTH / 2 - this.width / 2;
@@ -365,6 +425,7 @@ class Player {
         }
         this.y = CANVAS_HEIGHT - 50;
     }
+
     updateInput(keys) {
         if (this.id === 1) {
             if (keys['ArrowLeft']) this.move(-1);
@@ -383,6 +444,7 @@ class Player {
             if (keys['KeyH']) this.moveY(1);
         }
     }
+
     handleShoot(code) {
         if (this.id === 1 && code === 'Space') {
             this.shoot();
@@ -394,11 +456,13 @@ class Player {
             this.shoot();
         }
     }
+
     move(dir) {
         this.x += dir * PLAYER_SPEED;
         if (this.x < 0) this.x = 0;
         if (this.x + this.width > CANVAS_WIDTH) this.x = CANVAS_WIDTH - this.width;
     }
+
     moveY(dir) {
         this.y += dir * PLAYER_SPEED;
         // Limit vertical movement to bottom half of screen
@@ -408,20 +472,25 @@ class Player {
         if (this.y < minY) this.y = minY;
         if (this.y > maxY) this.y = maxY;
     }
+
     shoot() {
         this.game.bullets.push(new Bullet(this.x + this.width / 2, this.y, -1, false, this));
     }
+
     update() {
         if (this.invulnerable > 0) this.invulnerable--;
+
         if (this.isCpu) {
             this.aiLogic();
         }
     }
+
     aiLogic() {
         // Advanced AI: Find lowest enemy (most threatening) first
         let targetEnemy = null;
         let maxY = -Infinity;
         let minDist = Infinity;
+
         // Find bottom-most row first
         this.game.enemies.forEach(e => {
             if (e.y > maxY) {
@@ -437,23 +506,28 @@ class Player {
                 }
             }
         });
+
         if (targetEnemy) {
             const center = this.x + this.width / 2;
             const target = targetEnemy.x + targetEnemy.width / 2;
+
             // Tighter movement threshold
             if (Math.abs(center - target) > 2) {
                 if (center < target) this.move(1);
                 else this.move(-1);
             }
+
             // MAX AGGRESSION
             if (Math.abs(center - target) < 60 && Math.random() < 0.9) {
                 this.shoot();
             }
         }
     }
+
     draw(ctx) {
         if (this.isDead) return;
         if (this.invulnerable > 0 && Math.floor(Date.now() / 100) % 2 === 0) return; // Blink effect
+
         ctx.fillStyle = this.color;
         // Simple ship shape
         ctx.beginPath();
@@ -463,6 +537,7 @@ class Player {
         ctx.lineTo(this.x, this.y + this.height);
         ctx.closePath();
         ctx.fill();
+
         // Shadow/Glow
         ctx.shadowBlur = 10;
         ctx.shadowColor = this.color;
@@ -470,15 +545,18 @@ class Player {
         ctx.shadowBlur = 0;
     }
 }
+
 // ----------------------
 // GAME ENGINE
 // ----------------------
+
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.canvas.width = CANVAS_WIDTH;
         this.canvas.height = CANVAS_HEIGHT;
+
         this.scoreElement = document.getElementById('score');
         this.livesElement = document.getElementById('lives');
         this.timerElement = document.getElementById('timer');
@@ -490,10 +568,12 @@ class Game {
         this.loginUser = document.getElementById('loginUser');
         this.btnLogin = document.getElementById('btnLogin');
         this.loginMsg = document.getElementById('loginMsg');
+
         this.state = 'LOGIN'; // LOGIN, START, PLAYING, GAMEOVER
         this.keys = {};
         this.numPlayers = 1;
         this.currentPlayerName = "COMMANDER";
+
         this.players = [];
         this.bullets = [];
         this.enemies = [];
@@ -501,27 +581,33 @@ class Game {
         this.enemyDirection = 1; // 1 = right, -1 = left
         this.enemyMoveTimer = 0;
         this.enemyMoveInterval = 50; // frames
+
         this.highScoreManager = new HighScoreManager();
         this.socialManager = new SocialManager(this);
         this.networkManager = new NetworkManager(this);
         this.init();
     }
+
     init() {
         this.setupLogin();
         this.setupInput();
         this.socialManager.initUser(this.currentPlayerName);
     }
+
     // MULTIPLAYER METHODS
     startMultiplayer(role) {
         this.mode = 'MULTIPLAYER'; // 'LOCAL' or 'MULTIPLAYER'
         this.networkManager.role = role;
         this.networkManager.listenForUpdates();
+
         // UI Prep
         this.startScreen.classList.add('hidden');
         this.socialManager.toggle(false); // Close social
+
         // Reset Game
         this.level = 1;
         this.resetPlayersMultplayer();
+
         if (role === 'HOST') {
             this.spawnEntities(true);
         } else {
@@ -529,8 +615,10 @@ class Game {
             this.enemies = [];
             this.bullets = [];
         }
+
         this.loop();
     }
+
     resetPlayersMultplayer() {
         this.players = [];
         // P1 (Host)
@@ -538,6 +626,7 @@ class Game {
         // P2 (Guest)
         this.players.push(new Player(this, 2));
     }
+
     syncFromHost(data) {
         // Update Game State from Host Data
         if (data.enemies) {
@@ -556,6 +645,7 @@ class Game {
             p1.lives = data.p1.lives;
         }
     }
+
     syncFromGuest(data) {
         // Update P2 from Guest Data
         const p2 = this.players[1];
@@ -564,11 +654,14 @@ class Game {
             if (data.shooting) p2.shoot();
         }
     }
+
     update() {
         if (this.state !== 'PLAYING') return;
+
         // MULTIPLAYER SYNC
         if (this.mode === 'MULTIPLAYER') {
             this.networkManager.update();
+
             // If Guest, I ONLY update my own input (P2) locally for prediction
             // And render what Host sends.
             if (this.networkManager.role === 'GUEST') {
@@ -580,101 +673,111 @@ class Game {
                 return; // SKIP normal game logic (physics/ai)
             }
         }
+
         if (this.state === 'GAME_OVER' || this.state === 'PAUSED') return;
+
         const now = Date.now();
         const dt = (now - this.lastTime) / 1000;
         this.lastTime = now;
+
         // Clear canvas (Transparent to show CSS background)
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
         // Update logic
         this.networkManager.update(dt); // Keep network sync
         this.updateGameLogic(dt);
+
         this.draw();
+
         requestAnimationFrame(this.loop);
     }
+
     updateGameLogic(dt) {
-         // Timer Logic
-         this.gameTime -= dt;
-         if (this.gameTime <= 0) {
-             this.gameTime = 0;
-             this.updateHUD();
-             this.gameOver();
-             return;
-         }
-         // Update HUD
-         this.updateHUD();
- 
-         // Player Movement
-         this.players.forEach(p => {
-             if (!p.isDead) p.updateInput(this.keys);
-         });
-         this.players.forEach(p => p.update());
- 
-         // Bullets
-         this.bullets.forEach((b, i) => {
-             b.update();
-             if (b.y < 0 || b.y > CANVAS_HEIGHT) {
-                 // If bullet goes off screen (and is player's), count as miss
-                 if (!b.isEnemy && b.owner) {
-                     b.owner.misses++;
-                     if (b.y < 0) {
-                         this.floatingTexts.push(new FloatingText(b.x, 30, "MISS", "#ff0000"));
-                     }
-                 }
-                 this.bullets.splice(i, 1);
-             }
-         });
- 
-         // Enemies
-         let hitEdge = false;
-         this.enemies.forEach(e => {
-             e.update(this.enemyDirection);
-             if (e.x <= 0 || e.x + e.width >= CANVAS_WIDTH) hitEdge = true;
-         });
- 
-         if (hitEdge) {
-             this.enemyDirection *= -1;
-             this.enemies.forEach(e => e.y += ENEMY_DROP_DISTANCE);
-         }
- 
-         // Enemy Shooting
-         const shootChance = 0.002 + (this.level * 0.001);
- 
-         if (Math.random() < shootChance && this.enemies.length > 0) {
-             const shooter = this.enemies[Math.floor(Math.random() * this.enemies.length)];
-             shooter.shoot();
-         }
- 
-         // Particles
-         this.particles.forEach((p, i) => {
-             p.update();
-             if (p.life <= 0) this.particles.splice(i, 1);
-         });
- 
-         // Floating Texts
-         this.floatingTexts.forEach((t, i) => {
-             t.update();
-             if (t.life <= 0) this.floatingTexts.splice(i, 1);
-         });
- 
-         this.checkCollisions();
- 
-         if (this.enemies.length === 0) {
-             // Next Level
-             this.level++;
-             this.gameTime = 60; // Reset timer for new level
-             this.spawnEntities(false); // Keep player stats
-             this.updateLevelBackground();
-             this.updateHUD();
-         }
+        // Timer Logic
+        this.gameTime -= dt;
+        if (this.gameTime <= 0) {
+            this.gameTime = 0;
+            this.updateHUD();
+            this.gameOver();
+            return;
+        }
+        // Update HUD
+        this.updateHUD();
+
+        // Player Movement
+        this.players.forEach(p => {
+            if (!p.isDead) p.updateInput(this.keys);
+        });
+        this.players.forEach(p => p.update());
+
+        // Bullets
+        this.bullets.forEach((b, i) => {
+            b.update();
+            if (b.y < 0 || b.y > CANVAS_HEIGHT) {
+                // If bullet goes off screen (and is player's), count as miss
+                if (!b.isEnemy && b.owner) {
+                    b.owner.misses++;
+                    if (b.y < 0) {
+                        this.floatingTexts.push(new FloatingText(b.x, 30, "MISS", "#ff0000"));
+                    }
+                }
+                this.bullets.splice(i, 1);
+            }
+        });
+
+        // Enemies
+        let hitEdge = false;
+        this.enemies.forEach(e => {
+            e.update(this.enemyDirection);
+            if (e.x <= 0 || e.x + e.width >= CANVAS_WIDTH) hitEdge = true;
+        });
+
+        if (hitEdge) {
+            this.enemyDirection *= -1;
+            this.enemies.forEach(e => e.y += ENEMY_DROP_DISTANCE);
+        }
+
+        // Enemy Shooting
+        const shootChance = 0.002 + (this.level * 0.001);
+
+        if (Math.random() < shootChance && this.enemies.length > 0) {
+            const shooter = this.enemies[Math.floor(Math.random() * this.enemies.length)];
+            shooter.shoot();
+        }
+
+        // Particles
+        this.particles.forEach((p, i) => {
+            p.update();
+            if (p.life <= 0) this.particles.splice(i, 1);
+        });
+
+        // Floating Texts
+        this.floatingTexts.forEach((t, i) => {
+            t.update();
+            if (t.life <= 0) this.floatingTexts.splice(i, 1);
+        });
+
+        this.checkCollisions();
+
+        if (this.enemies.length === 0) {
+            // Next Level
+            this.level++;
+            this.gameTime = 60; // Reset timer for new level
+            this.spawnEntities(false); // Keep player stats
+            this.updateLevelBackground();
+            this.updateHUD();
+        }
     }
+
     setupLogin() {
         if (!this.btnLogin) return;
+
         // Check for existing session (24 hour validity)
         const session = JSON.parse(localStorage.getItem('si_session'));
         if (session) {
             const now = Date.now();
             const oneDay = 24 * 60 * 60 * 1000;
+
             if (now - session.timestamp < oneDay) {
                 // Restore session
                 this.currentPlayerName = session.name;
@@ -684,18 +787,23 @@ class Game {
                 return; // Skip login setup
             }
         }
+
         const handleLogin = () => {
             const username = this.loginUser.value.trim();
+
             if (username) {
                 this.currentPlayerName = username.toUpperCase();
+
                 // Save Session
                 localStorage.setItem('si_session', JSON.stringify({
                     timestamp: Date.now(),
                     name: this.currentPlayerName
                 }));
+
                 // Success Animation / Transition
                 this.loginMsg.style.color = '#39ff14';
                 this.loginMsg.innerText = "ACCESS GRANTED. WELCOME, " + this.currentPlayerName;
+
                 setTimeout(() => {
                     this.state = 'START';
                     this.loginScreen.classList.add('hidden');
@@ -704,22 +812,26 @@ class Game {
             } else {
                 this.loginMsg.style.color = 'var(--neon-red)';
                 this.loginMsg.innerText = "ACCESS DENIED. ID REQUIRED.";
+
                 // Shake effect
                 this.loginScreen.classList.add('shake');
                 setTimeout(() => this.loginScreen.classList.remove('shake'), 500);
             }
         };
+
         this.btnLogin.addEventListener('click', handleLogin);
         // Allow Enter key to login
         this.loginUser.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') handleLogin();
         });
     }
+
     setupInput() {
         // Mobile Controls
         const bindTouch = (id, key) => {
             const btn = document.getElementById(id);
             if (!btn) return;
+
             btn.addEventListener('touchstart', (e) => {
                 e.preventDefault(); // Prevent scroll/zoom
                 this.keys[key] = true;
@@ -732,21 +844,25 @@ class Game {
                     this.resetGame();
                 }
             });
+
             btn.addEventListener('touchend', (e) => {
                 e.preventDefault();
                 this.keys[key] = false;
             });
         };
+
         bindTouch('btnUp', 'ArrowUp');
         bindTouch('btnDown', 'ArrowDown');
         bindTouch('btnLeft', 'ArrowLeft');
         bindTouch('btnRight', 'ArrowRight');
         bindTouch('btnShoot', 'Space');
+
         this.startScreen.addEventListener('touchstart', (e) => {
             if (this.state === 'START') {
                 if (this.keys['Space']) this.startGame(1);
             }
         });
+
         // Add specific listener for Shoot button to start game
         const btnShoot = document.getElementById('btnShoot');
         if (btnShoot) {
@@ -754,9 +870,12 @@ class Game {
                 if (this.state === 'START') this.startGame(1);
             });
         }
+
+
         window.addEventListener('keydown', (e) => {
             this.keys[e.code] = true;
             this.keys[e.key] = true;
+
             if (this.state === 'START') {
                 if (e.key === '1') this.startGame(1);
                 if (e.key === '2') this.startGame(2);
@@ -768,11 +887,13 @@ class Game {
                 this.players.forEach(p => p.handleShoot(e.code));
             }
         });
+
         window.addEventListener('keyup', (e) => {
             this.keys[e.code] = false;
             this.keys[e.key] = false;
         });
     }
+
     startGame(numPlayers, cpuEnabled = false) {
         if (numPlayers) this.numPlayers = numPlayers;
         this.cpuEnabled = cpuEnabled;
@@ -786,11 +907,15 @@ class Game {
         this.updateLevelBackground();
         this.updateHUD();
     }
+
+
+
     resetGame() {
         this.state = 'START';
         this.gameOverScreen.classList.add('hidden');
         this.startScreen.classList.remove('hidden');
     }
+
     spawnEntities(resetPlayers = true) {
         if (resetPlayers) {
             this.players = [];
@@ -805,6 +930,7 @@ class Game {
         this.enemies = [];
         this.particles = [];
         this.floatingTexts = [];
+
         // Check for Boss Spawn
         if (this.level === 15 || this.level === 30 || this.level === 45 || this.level === 50) {
             // Boss Fight!
@@ -818,6 +944,7 @@ class Game {
             const startX = 50;
             const startY = 50;
             const padding = 50;
+
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     this.enemies.push(new Enemy(this, startX + c * padding, startY + r * padding));
@@ -825,6 +952,7 @@ class Game {
             }
         }
     }
+
     updateLevelBackground() {
         const gameContainer = document.querySelector('.game-container');
         if (gameContainer) {
@@ -832,6 +960,7 @@ class Game {
             gameContainer.style.background = BG_GRADIENTS[bgIndex];
         }
     }
+
     checkCollisions() {
         // 1. Bullets hitting Enemies or Players
         this.bullets.forEach((b, bIndex) => {
@@ -851,6 +980,7 @@ class Game {
                     if (this.checkRectCollision(b, e)) {
                         this.createExplosion(e.x + e.width / 2, e.y + e.height / 2, e.color || '#39ff14');
                         this.bullets.splice(bIndex, 1);
+
                         // Boss Handling
                         if (e instanceof Boss) {
                             e.hp -= 10;
@@ -865,7 +995,9 @@ class Game {
                             this.enemies.splice(eIndex, 1);
                             if (b.owner) b.owner.score += 100;
                         }
+
                         if (b.owner) b.owner.hits++;
+
                         // Revive Mechanic (10% Chance)
                         if (Math.random() < 0.1) {
                             const deadPlayers = this.players.filter(p => p.isDead);
@@ -881,51 +1013,62 @@ class Game {
                 });
             }
         });
+
         // 2. Enemies touching Players (Kamikaze)
         this.enemies.forEach(e => {
             if (e.y + e.height >= CANVAS_HEIGHT) {
                 this.gameOver();
             }
-            
+
             this.players.forEach(p => {
-                if (p.isDead) return; 
+                if (p.isDead) return;
                 if (this.checkRectCollision(e, p)) {
                     this.playerHit(p);
                 }
             });
         });
     }
+
     checkRectCollision(r1, r2) {
         return r1.x < r2.x + r2.width &&
             r1.x + r1.width > r2.x &&
             r1.y < r2.y + r2.height &&
             r1.y + r1.height > r2.y;
     }
+
     playerHit(player) {
         // Prevent instant multiple hits from same frame?
         if (player.invulnerable > 0) return;
+
         player.lives--;
         player.invulnerable = 60; // 60 frames (1 sec) invulnerability
+
         this.updateHUD();
         this.createExplosion(player.x + player.width / 2, player.y + player.height / 2, '#ff00ff', 20);
+
         if (player.lives <= 0) {
             player.isDead = true;
             // Do NOT splice, keep for stats
         }
+
         // Check if all dead
         if (this.players.every(p => p.isDead)) {
             this.gameOver();
         }
     }
+
     statsScore(points) {
         this.score += points;
         this.updateHUD();
     }
+
     updateHUD() {
         let scoreText = `LVL ${this.level}`;
+
         if (this.players.length > 0) {
             let livesText = "";
             let pScores = "  |  ";
+
             this.players.forEach(p => {
                 const livesDisplay = p.isDead ? "DEAD" : p.lives;
                 livesText += `P${p.id}: ${livesDisplay}  `;
@@ -937,19 +1080,23 @@ class Game {
             this.livesElement.innerText = "DEAD";
             this.scoreElement.innerText = scoreText + "  |  GAME OVER";
         }
+
         if (this.timerElement) {
             this.timerElement.innerText = Math.ceil(this.gameTime);
         }
     }
+
     gameOver() {
         this.state = 'GAMEOVER';
         this.gameOverScreen.classList.remove('hidden');
+
         // Find Winner
         let winnerHtml = "";
         if (this.numPlayers > 1) {
             let maxScore = -1;
             let winner = null;
             let tie = false;
+
             this.players.forEach(p => {
                 if (p.score > maxScore) {
                     maxScore = p.score;
@@ -959,6 +1106,7 @@ class Game {
                     tie = true;
                 }
             });
+
             if (tie) {
                 winnerHtml = `<h2 style="color: #ffffff; text-align:center; margin-bottom:10px;">IT'S A DRAW!</h2>`;
             } else if (winner) {
@@ -967,21 +1115,25 @@ class Game {
                 winnerHtml = `<h2 style="color: ${color}; text-align:center; margin-bottom:10px;">${name} WINS! 🏆</h2>`;
             }
         }
+
         // Total score (sum of all player scores)
         const totalScore = this.players.reduce((sum, p) => sum + p.score, 0);
         this.finalScoreElement.innerText = totalScore;
+
         // Generate stats HTML
         let statsHtml = winnerHtml;
         this.players.forEach(p => {
             const totalShots = p.hits + p.misses;
             const acc = totalShots > 0 ? Math.round((p.hits / totalShots) * 100) : 0;
             const color = p.id === 1 ? '#00ffff' : (p.isCpu ? '#ff00ff' : '#ffaa00');
+
             statsHtml += `<div style="color: ${color}; margin-bottom: 5px;">
                  P${p.id}${p.isCpu ? ' (CPU)' : ''}: ${p.score} pts<br>
                  HITS: ${p.hits} | MISSES: ${p.misses} | ACC: ${acc}%
              </div>`;
         });
         this.statsElement.innerHTML = statsHtml;
+
         // Save High Scores
         this.players.forEach(p => {
             if (p.score > 0) {
@@ -990,14 +1142,17 @@ class Game {
             }
         });
     }
+
     createExplosion(x, y, color, count = 10) {
         for (let i = 0; i < count; i++) {
             this.particles.push(new Particle(x, y, color));
         }
     }
+
     draw() {
         this.ctx.fillStyle = '#050510';
         this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
         if (this.state === 'PLAYING') {
             this.players.forEach(p => p.draw(this.ctx));
             this.enemies.forEach(e => e.draw(this.ctx));
@@ -1006,12 +1161,14 @@ class Game {
             this.floatingTexts.forEach(t => t.draw(this.ctx));
         }
     }
+
     loop() {
         this.update();
         this.draw();
         requestAnimationFrame(this.loop);
     }
 }
+
 // Start Game
 window.onload = () => {
     window.game = new Game();
