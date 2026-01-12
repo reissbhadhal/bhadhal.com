@@ -109,37 +109,68 @@
     <canvas id="gameCanvas"></canvas>
 
     <div class="ui-overlay">
-        <a href="/" class="back-link">← EXIT TRACK</a>
-        <div style="margin-top: 40px; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+        <!-- Persistent HUD -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <a href="/" class="back-link" style="opacity: 0.5;">← EXIT</a>
+            <button id="btnPitStop" class="back-link" style="opacity: 0.8; background: #333; border-color: #fff;">PIT
+                STOP 🛠️</button>
+        </div>
+
+        <!-- Hidden Lobby Menu -->
+        <div id="lobbyMenu"
+            style="display: none; background: rgba(0,0,0,0.9); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 40px; border: 2px solid var(--neon-orange); text-align: center; border-radius: 10px;">
+            <h2 style="color: #fff; margin-bottom: 20px;">PIT STOP MENU</h2>
+
             <!-- Name Input -->
             <input type="text" id="playerName" placeholder="ENTER RACER NAME" maxlength="10"
-                style="background: rgba(0,0,0,0.8); border: 2px solid var(--neon-orange); color: #fff; padding: 15px; font-family: inherit; font-size: 1.2rem; text-align: center; text-transform: uppercase;">
+                style="background: rgba(0,0,0,0.8); border: 2px solid var(--neon-orange); color: #fff; padding: 15px; font-family: inherit; font-size: 1.2rem; text-align: center; text-transform: uppercase; margin-bottom: 20px; width: 100%;">
 
             <!-- Lobby Buttons -->
             <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
                 <button id="btnCreate"
-                    style="background: rgba(0, 100, 255, 0.6); border: 3px solid #00ffff; color: #fff; font-family: inherit; font-size: 1.5rem; padding: 20px 40px; font-weight: bold; cursor: pointer; text-shadow: 0 0 5px #00ffff;">
+                    style="background: rgba(0, 100, 255, 0.6); border: 3px solid #00ffff; color: #fff; font-family: inherit; font-size: 1.2rem; padding: 15px 30px; font-weight: bold; cursor: pointer; text-shadow: 0 0 5px #00ffff;">
                     CREATE RACE
                 </button>
                 <button id="btnJoin"
-                    style="background: rgba(255, 100, 0, 0.6); border: 3px solid #ff3300; color: #fff; font-family: inherit; font-size: 1.5rem; padding: 20px 40px; font-weight: bold; cursor: pointer; text-shadow: 0 0 5px #ff3300;">
+                    style="background: rgba(255, 100, 0, 0.6); border: 3px solid #ff3300; color: #fff; font-family: inherit; font-size: 1.2rem; padding: 15px 30px; font-weight: bold; cursor: pointer; text-shadow: 0 0 5px #ff3300;">
                     JOIN RACE
                 </button>
             </div>
+
+            <button id="btnClosePit"
+                style="margin-top: 20px; background: transparent; border: 1px solid #666; color: #aaa; padding: 10px 20px; cursor: pointer;">RESUME
+                RACE</button>
         </div>
 
-        <!-- Leaderboard -->
-        <div id="leaderboardPanel"
-            style="margin-top: 30px; background: rgba(0,0,0,0.8); padding: 20px; border: 1px solid #fff; max-width: 400px; display: none;">
-            <h3 style="color: var(--neon-orange); margin-bottom: 10px;">TOP RACERS</h3>
-            <div id="leaderboardList" style="font-size: 0.9em; line-height: 1.6;">Loading...</div>
+        <!-- Leaderboard (Keep visible or move to menu? Let's keep it mini or hide it. User said removing terminal screen. Let's hide it and show in Pit Stop or separate toggle. Actually, let's keep it visible but small at bottom left maybe? Or inside Pit Stop. Let's put it in Pit Stop to be clean) -->
+        <div id="leaderboardPanel" style="display: none; margin-top: 20px; text-align: left;">
+            <h3 style="color: var(--neon-orange); border-bottom: 1px solid #555;">LEADERBOARD</h3>
+            <div id="leaderboardList" style="font-size: 0.8em; max-height: 150px; overflow-y: auto;">Loading...</div>
         </div>
 
-        <p id="lobbyStatus" style="margin-top: 10px; color: #fff; text-shadow: 0 0 5px #fff; font-size: 1.2em;"></p>
+        <p id="lobbyStatus"
+            style="margin-top: 10px; color: #fff; text-shadow: 0 0 5px #fff; font-size: 1.2em; text-align: center;"></p>
     </div>
 
     <!-- Lobby Logic -->
     <script>
+        // Toggle Pit Stop
+        const lobbyMenu = document.getElementById('lobbyMenu');
+        const leaderboardPanel = document.getElementById('leaderboardPanel');
+
+        document.getElementById('btnPitStop').onclick = () => {
+            lobbyMenu.style.display = 'block';
+            leaderboardPanel.style.display = 'block'; // Show leaderboard in menu
+            // Fetch leaderboard when menu opens
+            if (window.game && window.game.network) {
+                window.game.network.fetchLeaderboard();
+            }
+        };
+
+        document.getElementById('btnClosePit').onclick = () => {
+            lobbyMenu.style.display = 'none';
+        };
+
         // Load Name with 7-Day Expiry
         const nameInput = document.getElementById('playerName');
         const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -151,6 +182,11 @@
         if (storedName && storedTime && (now - parseInt(storedTime) < ONE_WEEK_MS)) {
             // Valid and not expired
             nameInput.value = storedName;
+            // Set it in game immediately so leaderboard works for single player
+            // We need to wait for game to be ready, or set it on window.onload
+            window.addEventListener('load', () => {
+                if (window.game) window.game.playerName = storedName;
+            });
         } else {
             // Expired or missing - clear it so they are asked again
             localStorage.removeItem('racerName');
