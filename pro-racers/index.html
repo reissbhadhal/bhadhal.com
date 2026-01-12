@@ -140,16 +140,34 @@
 
     <!-- Lobby Logic -->
     <script>
-        // Load Name
+        // Load Name with 7-Day Expiry
         const nameInput = document.getElementById('playerName');
-        if (localStorage.getItem('racerName')) {
-            nameInput.value = localStorage.getItem('racerName');
+        const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+        const storedName = localStorage.getItem('racerName');
+        const storedTime = localStorage.getItem('racerNameTime');
+        const now = Date.now();
+
+        if (storedName && storedTime && (now - parseInt(storedTime) < ONE_WEEK_MS)) {
+            // Valid and not expired
+            nameInput.value = storedName;
+        } else {
+            // Expired or missing - clear it so they are asked again
+            localStorage.removeItem('racerName');
+            localStorage.removeItem('racerNameTime');
+            nameInput.value = "";
         }
 
-        document.getElementById('btnCreate').onclick = async () => {
+        const saveName = () => {
             const name = nameInput.value.toUpperCase() || 'ANONYMOUS';
             localStorage.setItem('racerName', name);
+            localStorage.setItem('racerNameTime', Date.now().toString());
             window.game.playerName = name;
+            return name;
+        };
+
+        document.getElementById('btnCreate').onclick = async () => {
+            const name = saveName();
 
             document.getElementById('lobbyStatus').innerText = "Creating Lobby...";
             const id = await window.game.network.createLobby(name);
@@ -162,9 +180,7 @@
         };
 
         document.getElementById('btnJoin').onclick = async () => {
-            const name = nameInput.value.toUpperCase() || 'ANONYMOUS';
-            localStorage.setItem('racerName', name);
-            window.game.playerName = name;
+            const name = saveName();
 
             const id = prompt("Enter Lobby ID:");
             if (id) {
