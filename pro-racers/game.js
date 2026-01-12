@@ -74,32 +74,117 @@ class RaceGame {
 
     // --- INITIALIZATION ---
 
-    initWorld() {
-        // Ground
-        const planeGeo = new THREE.PlaneGeometry(2000, 2000);
-        const planeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
-        const ground = new THREE.Mesh(planeGeo, planeMat);
-        ground.rotation.x = -Math.PI / 2;
-        ground.receiveShadow = true;
-        this.scene.add(ground);
+    // --- INITIALIZATION ---
 
-        // Track - Neon Oval (Default)
+    initWorld() {
+        // Lights
+        const ambient = new THREE.AmbientLight(0x404040);
+        this.scene.add(ambient);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(50, 100, 50);
+        dirLight.castShadow = true;
+        this.scene.add(dirLight);
+
+        // Track Group
         this.trackGroup = new THREE.Group();
-        this.createTrackOval();
         this.scene.add(this.trackGroup);
+
+        // Default Map
+        this.currentMap = 'NEON';
+        this.loadMap('NEON');
     }
 
-    createTrackOval() {
-        // Simple boundary boxes for now
+    loadMap(type) {
+        this.currentMap = type;
+
+        // Clear old track
+        while (this.trackGroup.children.length > 0) {
+            this.trackGroup.remove(this.trackGroup.children[0]);
+        }
+
+        if (type === 'DESERT') {
+            this.createTrackDesert();
+        } else if (type === 'CITY') {
+            this.createTrackCity();
+        } else {
+            this.createTrackNeon();
+        }
+    }
+
+    createTrackNeon() {
+        // Ground
+        this.createGround(0x111111);
+        // Walls
         this.createWall(0, 0, 800, 500, 0xff00ff); // Outer
         this.createWall(0, 0, 600, 300, 0x00ffff); // Inner
     }
 
-    createWall(cx, cz, w, h, color) {
+    createTrackDesert() {
+        // Ground - Sand
+        this.createGround(0xE6C229); // Gold/Sand
+
+        // Track boundaries (Rocks/Canyons)
+        this.createWall(0, 0, 800, 500, 0xA0522D);
+        this.createWall(0, 0, 600, 300, 0xA0522D);
+
+        // Cacti
+        for (let i = 0; i < 20; i++) {
+            const h = 5 + Math.random() * 10;
+            const cactus = new THREE.Mesh(
+                new THREE.CylinderGeometry(1, 1, h, 8),
+                new THREE.MeshStandardMaterial({ color: 0x228b22 }) // Forest Green
+            );
+            // Random position outside inner loop
+            const angle = Math.random() * Math.PI * 2;
+            const rad = 350 + Math.random() * 50;
+            cactus.position.set(Math.cos(angle) * rad, h / 2, Math.sin(angle) * rad);
+            this.trackGroup.add(cactus);
+        }
+    }
+
+    createTrackCity() {
+        // Ground - Asphalt
+        this.createGround(0x222222);
+
+        // Buildings instad of walls
+        this.createWall(0, 0, 800, 500, 0x555555, 30); // Tall outer walls
+        this.createWall(0, 0, 600, 300, 0x333333, 20); // Inner block
+
+        // Street Lights or Deco
+        // Simple glowing posts
+        for (let i = 0; i < 10; i++) {
+            const h = 15;
+            const pole = new THREE.Mesh(
+                new THREE.BoxGeometry(1, h, 1),
+                new THREE.MeshStandardMaterial({ color: 0x888888 })
+            );
+            const light = new THREE.Mesh(
+                new THREE.BoxGeometry(2, 2, 2),
+                new THREE.MeshStandardMaterial({ color: 0xffffaa, emissive: 0xffffaa })
+            );
+            pole.position.set(-300 + i * 60, h / 2, -260);
+            light.position.set(0, h / 2, 0);
+            pole.add(light);
+            this.trackGroup.add(pole);
+        }
+    }
+
+    createGround(color) {
+        const planeGeo = new THREE.PlaneGeometry(2000, 2000);
+        const planeMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.8 });
+        const ground = new THREE.Mesh(planeGeo, planeMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        this.trackGroup.add(ground);
+    }
+
+    createTrackOval() { /* Deprecated by loadMap */ }
+
+    createWall(cx, cz, w, h, color, height = 5) {
         // Create 4 walls
-        const th = 2; // thickness
-        const height = 5;
-        const mat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.5 });
+        const th = 5; // thickness
+        const mat = new THREE.MeshStandardMaterial({ color: color });
 
         // Top
         const top = new THREE.Mesh(new THREE.BoxGeometry(w, height, th), mat);
@@ -122,15 +207,7 @@ class RaceGame {
         this.trackGroup.add(right);
     }
 
-    setupLights() {
-        const ambient = new THREE.AmbientLight(0x404040);
-        this.scene.add(ambient);
-
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(50, 100, 50);
-        dirLight.castShadow = true;
-        this.scene.add(dirLight);
-    }
+    setupLights() { /* Moved to initWorld */ }
 
     initCar() {
         this.car.mesh = this.createCarMesh(this.car.color);
@@ -257,9 +334,24 @@ class RaceGame {
             this.updateCarType(c.id, c.color);
         };
 
-        // Maps (Placeholder for now)
+
+        // Maps
+        const maps = [
+            { id: 'NEON', name: 'NEON OVAL', color: 0xff00ff },
+            { id: 'DESERT', name: 'SANDY CANYON', color: 0xffaa00 },
+            { id: 'CITY', name: 'CYBER CITY', color: 0x999999 }
+        ];
+        let mapIdx = 0;
+
         document.getElementById('btnMap').onclick = () => {
-            alert("More tracks coming soon!");
+            mapIdx = (mapIdx + 1) % maps.length;
+            const m = maps[mapIdx];
+            document.getElementById('mapName').innerText = m.name;
+            document.getElementById('mapName').style.color = '#' + m.color.toString(16).padStart(6, '0');
+            // Update Game Map
+            if (window.game && window.game.loadMap) {
+                window.game.loadMap(m.id);
+            }
         };
     }
 
