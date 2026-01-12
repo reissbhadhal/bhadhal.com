@@ -110,45 +110,84 @@
 
     <div class="ui-overlay">
         <a href="/" class="back-link">← EXIT TRACK</a>
-        <div style="margin-top: 40px; display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
-            <button id="btnCreate" class="back-link"
-                style="background: rgba(0, 100, 255, 0.6); border-color: #00ffff; font-size: 1.5rem; padding: 20px 40px; border-width: 3px; font-weight: bold; cursor: pointer;">
-                CREATE RACE
-            </button>
-            <button id="btnJoin" class="back-link"
-                style="background: rgba(255, 100, 0, 0.6); border-color: #ff3300; font-size: 1.5rem; padding: 20px 40px; border-width: 3px; font-weight: bold; cursor: pointer;">
-                JOIN RACE
-            </button>
+        <div style="margin-top: 40px; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+            <!-- Name Input -->
+            <input type="text" id="playerName" placeholder="ENTER RACER NAME" maxlength="10"
+                style="background: rgba(0,0,0,0.8); border: 2px solid var(--neon-orange); color: #fff; padding: 15px; font-family: inherit; font-size: 1.2rem; text-align: center; text-transform: uppercase;">
+
+            <!-- Lobby Buttons -->
+            <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
+                <button id="btnCreate"
+                    style="background: rgba(0, 100, 255, 0.6); border: 3px solid #00ffff; color: #fff; font-family: inherit; font-size: 1.5rem; padding: 20px 40px; font-weight: bold; cursor: pointer; text-shadow: 0 0 5px #00ffff;">
+                    CREATE RACE
+                </button>
+                <button id="btnJoin"
+                    style="background: rgba(255, 100, 0, 0.6); border: 3px solid #ff3300; color: #fff; font-family: inherit; font-size: 1.5rem; padding: 20px 40px; font-weight: bold; cursor: pointer; text-shadow: 0 0 5px #ff3300;">
+                    JOIN RACE
+                </button>
+            </div>
         </div>
-        <p id="lobbyStatus" style="margin-top: 10px; color: #fff; text-shadow: 0 0 5px #fff;"></p>
+
+        <!-- Leaderboard -->
+        <div id="leaderboardPanel"
+            style="margin-top: 30px; background: rgba(0,0,0,0.8); padding: 20px; border: 1px solid #fff; max-width: 400px; display: none;">
+            <h3 style="color: var(--neon-orange); margin-bottom: 10px;">TOP RACERS</h3>
+            <div id="leaderboardList" style="font-size: 0.9em; line-height: 1.6;">Loading...</div>
+        </div>
+
+        <p id="lobbyStatus" style="margin-top: 10px; color: #fff; text-shadow: 0 0 5px #fff; font-size: 1.2em;"></p>
     </div>
 
     <!-- Lobby Logic -->
     <script>
+        // Load Name
+        const nameInput = document.getElementById('playerName');
+        if (localStorage.getItem('racerName')) {
+            nameInput.value = localStorage.getItem('racerName');
+        }
+
         document.getElementById('btnCreate').onclick = async () => {
+            const name = nameInput.value.toUpperCase() || 'ANONYMOUS';
+            localStorage.setItem('racerName', name);
+            window.game.playerName = name;
+
             document.getElementById('lobbyStatus').innerText = "Creating Lobby...";
-            const id = await window.game.network.createLobby();
+            const id = await window.game.network.createLobby(name);
             if (id) {
-                document.getElementById('lobbyStatus').innerHTML = `LOBBY ID: <span style="color:#00ffff; font-size:1.2em">${id}</span><br>Waiting for opponent...`;
+                document.getElementById('lobbyStatus').innerHTML = `LOBBY ID: <span style="color:#00ffff; font-size:1.5em">${id}</span><br>Waiting for opponent...`;
                 document.getElementById('btnCreate').style.display = 'none';
                 document.getElementById('btnJoin').style.display = 'none';
+                document.getElementById('playerName').style.display = 'none';
             }
         };
 
         document.getElementById('btnJoin').onclick = async () => {
+            const name = nameInput.value.toUpperCase() || 'ANONYMOUS';
+            localStorage.setItem('racerName', name);
+            window.game.playerName = name;
+
             const id = prompt("Enter Lobby ID:");
             if (id) {
                 document.getElementById('lobbyStatus').innerText = "Joining...";
-                const success = await window.game.network.joinLobby(id);
+                const success = await window.game.network.joinLobby(id, name);
                 if (success) {
                     document.getElementById('lobbyStatus').innerText = "CONNECTED! RACING!";
                     document.getElementById('btnCreate').style.display = 'none';
                     document.getElementById('btnJoin').style.display = 'none';
+                    document.getElementById('playerName').style.display = 'none';
                 } else {
                     document.getElementById('lobbyStatus').innerText = "Failed to join. Check ID.";
                 }
             }
         };
+
+        // Init Leaderboard
+        window.addEventListener('load', async () => {
+            // We will implement this in RaceNetworkManager
+            if (window.game && window.game.network) {
+                await window.game.network.fetchLeaderboard();
+            }
+        });
     </script>
 
     <div class="mobile-controls">

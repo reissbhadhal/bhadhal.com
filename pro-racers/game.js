@@ -41,6 +41,13 @@ class RaceGame {
         this.opponentCar = { x: -100, y: -100, angle: 0, color: '#ff00ff' }; // Opponent is Purple/Pink
         this.isMultiplayer = false;
 
+        // Timer Logic
+        this.startTime = Date.now();
+        this.currentLapTime = 0;
+        this.bestLapTime = Infinity;
+        this.checkpointPassed = false;
+        this.playerName = "ANONYMOUS";
+
         this.resize();
         window.addEventListener('resize', () => this.resize());
         this.setupInputs();
@@ -131,11 +138,24 @@ class RaceGame {
         this.car.x += Math.cos(this.car.angle) * this.car.speed;
         this.car.y += Math.sin(this.car.angle) * this.car.speed;
 
-        // Screen Wrap (Simple track for now)
-        if (this.car.x > this.canvas.width) this.car.x = 0;
-        if (this.car.x < 0) this.car.x = this.canvas.width;
+        // Screen Wrap & Lap Logic
+        if (this.car.x > this.canvas.width) {
+            this.car.x = 0;
+            if (this.checkpointPassed) {
+                this.completeLap();
+            }
+        }
+        if (this.car.x < 0) {
+            this.car.x = this.canvas.width;
+            this.checkpointPassed = false; // Reset if going backwards
+        }
         if (this.car.y > this.canvas.height) this.car.y = 0;
         if (this.car.y < 0) this.car.y = this.canvas.height;
+
+        // Mid-point Checkpoint (Must pass center to count lap)
+        if (this.car.x > this.canvas.width / 2) {
+            this.checkpointPassed = true;
+        }
     }
 
     draw() {
@@ -159,6 +179,28 @@ class RaceGame {
         if (this.isMultiplayer) {
             this.ctx.fillText(`${this.network.role === 'HOST' ? 'HOST' : 'GUEST'}`, 20, 70);
             this.ctx.fillText(`LOBBY: ${this.network.lobbyId || '...'}`, 20, 100);
+        }
+
+        // Timer HUD
+        this.currentLapTime = (Date.now() - this.startTime) / 1000;
+        this.ctx.fillStyle = '#ffff00';
+        this.ctx.fillText(`TIME: ${this.currentLapTime.toFixed(2)}`, 20, 130);
+        if (this.bestLapTime !== Infinity) {
+            this.ctx.fillText(`BEST: ${this.bestLapTime.toFixed(2)}`, 20, 160);
+        }
+    }
+
+    completeLap() {
+        const lapTime = (Date.now() - this.startTime) / 1000;
+        this.startTime = Date.now(); // Reset for next lap
+        this.checkpointPassed = false;
+
+        if (lapTime < this.bestLapTime) {
+            this.bestLapTime = lapTime;
+            // Submit to Leaderboard
+            if (this.network) {
+                this.network.submitScore(this.playerName, this.bestLapTime);
+            }
         }
     }
 

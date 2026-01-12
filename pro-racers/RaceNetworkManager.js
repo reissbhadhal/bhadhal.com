@@ -122,4 +122,47 @@ class RaceNetworkManager {
             }
         });
     }
+
+    // --- LEADERBOARD ---
+
+    async submitScore(name, time) {
+        if (!this.db || !name) return;
+        console.log(`Submitting Score: ${name} - ${time}`);
+        try {
+            // Check if user has better score first? 
+            // For MVP, just push every good lap. Ideally query for existing best.
+            await this.db.collection('race_leaderboard').add({
+                name: name,
+                time: time,
+                date: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            this.fetchLeaderboard(); // Refresh display
+        } catch (e) {
+            console.error("Error submitting score:", e);
+        }
+    }
+
+    async fetchLeaderboard() {
+        if (!this.db) return;
+        try {
+            const snapshot = await this.db.collection('race_leaderboard')
+                .orderBy('time', 'asc')
+                .limit(10)
+                .get();
+
+            const list = document.getElementById('leaderboardList');
+            if (list) {
+                let html = '<ol style="padding-left: 20px;">';
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    html += `<li style="margin-bottom: 5px;"><span style="color:#fff">${d.name}</span> <span style="float:right; color:#00ffff">${d.time.toFixed(2)}s</span></li>`;
+                });
+                html += '</ol>';
+                list.innerHTML = html;
+                document.getElementById('leaderboardPanel').style.display = 'block';
+            }
+        } catch (e) {
+            console.error("Error fetching leaderboard:", e);
+        }
+    }
 }
