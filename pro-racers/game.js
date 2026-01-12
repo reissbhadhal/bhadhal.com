@@ -222,34 +222,61 @@ class RaceGame {
         this.opponentCar.mesh.position.set(-1000, -1000, -1000);
     }
 
-    createCarMesh(colorHex) {
+    createCarMesh(colorHex, type = 'RACING') {
         const group = new THREE.Group();
+        const matBody = new THREE.MeshStandardMaterial({ color: colorHex, metalness: 0.6, roughness: 0.2 });
+        const matDark = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const matWheel = new THREE.MeshStandardMaterial({ color: 0x111111 });
 
-        // Body
-        const bodyGeo = new THREE.BoxGeometry(2, 1, 4);
-        const bodyMat = new THREE.MeshStandardMaterial({ color: colorHex, metalness: 0.5, roughness: 0.2 });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        body.position.y = 0.5;
-        body.castShadow = true;
-        group.add(body);
+        if (type === 'F1') {
+            // Nose
+            const nose = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.5, 3), matBody);
+            nose.position.z = 1.5; nose.position.y = 0.5; group.add(nose);
+            // Cockpit
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.8, 2), matBody);
+            body.position.z = -0.5; body.position.y = 0.6; group.add(body);
+            // Spoiler
+            const spoiler = new THREE.Mesh(new THREE.BoxGeometry(3, 0.2, 0.8), matBody);
+            spoiler.position.set(0, 1.2, -1.8); group.add(spoiler);
+            // Wings
+            const fWing = new THREE.Mesh(new THREE.BoxGeometry(3, 0.2, 0.5), matBody);
+            fWing.position.set(0, 0.4, 2.5); group.add(fWing);
 
-        // Cabin
-        const cabinGeo = new THREE.BoxGeometry(1.8, 0.8, 2);
-        const cabinMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-        const cabin = new THREE.Mesh(cabinGeo, cabinMat);
-        cabin.position.y = 1.2;
-        cabin.position.z = -0.2;
-        group.add(cabin);
+            // Wheels (Wide)
+            const wGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.6, 16); wGeo.rotateZ(Math.PI / 2);
+            const w1 = new THREE.Mesh(wGeo, matWheel); w1.position.set(1.5, 0.6, 1.5); group.add(w1);
+            const w2 = new THREE.Mesh(wGeo, matWheel); w2.position.set(-1.5, 0.6, 1.5); group.add(w2);
+            const w3 = new THREE.Mesh(wGeo, matWheel); w3.position.set(1.5, 0.6, -1.5); group.add(w3);
+            const w4 = new THREE.Mesh(wGeo, matWheel); w4.position.set(-1.5, 0.6, -1.5); group.add(w4);
 
-        // Wheels
-        const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 16);
-        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-        wheelGeo.rotateZ(Math.PI / 2);
+        } else if (type === 'TRUCK') {
+            // Big Body
+            const body = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2, 5), matBody);
+            body.position.y = 1.5; group.add(body);
+            // Cab
+            const cab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.5, 2), matDark);
+            cab.position.set(0, 3, 0); group.add(cab);
 
-        const w1 = new THREE.Mesh(wheelGeo, wheelMat); w1.position.set(1.1, 0.4, 1.2); group.add(w1);
-        const w2 = new THREE.Mesh(wheelGeo, wheelMat); w2.position.set(-1.1, 0.4, 1.2); group.add(w2);
-        const w3 = new THREE.Mesh(wheelGeo, wheelMat); w3.position.set(1.1, 0.4, -1.2); group.add(w3);
-        const w4 = new THREE.Mesh(wheelGeo, wheelMat); w4.position.set(-1.1, 0.4, -1.2); group.add(w4);
+            // Big Wheels
+            const wGeo = new THREE.CylinderGeometry(1.0, 1.0, 1.0, 16); wGeo.rotateZ(Math.PI / 2);
+            const w1 = new THREE.Mesh(wGeo, matWheel); w1.position.set(2, 1, 1.5); group.add(w1);
+            const w2 = new THREE.Mesh(wGeo, matWheel); w2.position.set(-2, 1, 1.5); group.add(w2);
+            const w3 = new THREE.Mesh(wGeo, matWheel); w3.position.set(2, 1, -1.5); group.add(w3);
+            const w4 = new THREE.Mesh(wGeo, matWheel); w4.position.set(-2, 1, -1.5); group.add(w4);
+
+        } else {
+            // Standard Car (Existing logic approx)
+            const body = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 4), matBody);
+            body.position.y = 0.5; group.add(body);
+            const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.8, 2), matDark);
+            cabin.position.set(0, 1.2, -0.2); group.add(cabin);
+            // Wheels
+            const wGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 16); wGeo.rotateZ(Math.PI / 2);
+            const w1 = new THREE.Mesh(wGeo, matWheel); w1.position.set(1.1, 0.4, 1.2); group.add(w1);
+            const w2 = new THREE.Mesh(wGeo, matWheel); w2.position.set(-1.1, 0.4, 1.2); group.add(w2);
+            const w3 = new THREE.Mesh(wGeo, matWheel); w3.position.set(1.1, 0.4, -1.2); group.add(w3);
+            const w4 = new THREE.Mesh(wGeo, matWheel); w4.position.set(-1.1, 0.4, -1.2); group.add(w4);
+        }
 
         return group;
     }
@@ -295,20 +322,19 @@ class RaceGame {
     }
 
     updateCarType(type, colorOverride = null) {
-        this.car.type = type;
+        this.car.type = type; // F1, TRUCK, RACING
         if (colorOverride) this.car.color = colorOverride;
 
-        // Remove old mesh
         this.scene.remove(this.car.mesh);
-        // Create new
-        this.car.mesh = this.createCarMesh(this.car.color); // TODO: Add different geometries based on type later
+        this.car.mesh = this.createCarMesh(this.car.color, this.car.type);
         this.scene.add(this.car.mesh);
     }
 
     updateOpponentCar(color) {
         this.opponentCar.color = color;
         this.scene.remove(this.opponentCar.mesh);
-        this.opponentCar.mesh = this.createCarMesh(color);
+        // Default opponent to Racing for now, or sync type later
+        this.opponentCar.mesh = this.createCarMesh(color, 'RACING');
         this.scene.add(this.opponentCar.mesh);
     }
 
@@ -334,55 +360,88 @@ class RaceGame {
         setupTouch('btnRight', 'ArrowRight');
     }
 
-    setupSelectionUI() {
-        const cars = [
-            { id: 'SPEEDSTER', name: 'CYAN SPEEDSTER', color: 0x00ffff },
-            { id: 'RACER_X', name: 'RED RACER X', color: 0xff0000 },
-            { id: 'SHADOW', name: 'SHADOW OPS', color: 0x333333 },
-            { id: 'GOLD', name: 'GOLDEN AGE', color: 0xffaa00 }
-        ];
-        let carIdx = 0;
-
-        document.getElementById('btnCar').onclick = () => {
-            carIdx = (carIdx + 1) % cars.length;
-            const c = cars[carIdx];
-            document.getElementById('carName').innerText = c.name;
-            document.getElementById('carName').style.color = '#' + c.color.toString(16).padStart(6, '0');
-            this.updateCarType(c.id, c.color);
+    setupAdvancedSelectionUI() {
+        const classes = ['RACING', 'HEAVY', 'STREET'];
+        const vehicles = {
+            'RACING': [{ id: 'F1', name: 'F1 RACER' }, { id: 'SPEEDSTER', name: 'SPEEDSTER' }],
+            'HEAVY': [{ id: 'TRUCK', name: 'MONSTER TRUCK' }, { id: 'TANK', name: 'ARMORED VAN' }],
+            'STREET': [{ id: 'SEDAN', name: 'NEON CRUISER' }, { id: 'MUSCLE', name: 'MUSCLE CAR' }]
         };
-
-        // Maps
+        const characters = ['THE PILOT', 'ROBOT', 'CYBERPUNK', 'ALIEN'];
         const maps = [
             { id: 'NEON', name: 'NEON OVAL', color: 0xff00ff },
             { id: 'DESERT', name: 'SANDY CANYON', color: 0xffaa00 },
             { id: 'CITY', name: 'CYBER CITY', color: 0x999999 }
         ];
+
+        let classIdx = 0;
+        let vehIdx = 0;
+        let charIdx = 0;
         let mapIdx = 0;
 
+        const updateUI = () => {
+            const cls = classes[classIdx];
+            const vehList = vehicles[cls];
+            if (vehIdx >= vehList.length) vehIdx = 0; // reset if out of bounds
+            const veh = vehList[vehIdx];
+
+            document.getElementById('className').innerText = cls;
+            document.getElementById('vehicleName').innerText = veh.name;
+
+            // Update Car Preview
+            this.updateCarType(veh.id, 0x00ffff); // Default Cyan for preview
+        };
+
+        // 1. Class
+        document.getElementById('btnClass').onclick = () => {
+            classIdx = (classIdx + 1) % classes.length;
+            vehIdx = 0; // Reset vehicle to first of new class
+            updateUI();
+        };
+
+        // 2. Vehicle
+        document.getElementById('btnVehicle').onclick = () => {
+            const cls = classes[classIdx];
+            vehIdx = (vehIdx + 1) % vehicles[cls].length;
+            updateUI();
+        };
+
+        // 3. Character
+        document.getElementById('btnChar').onclick = () => {
+            charIdx = (charIdx + 1) % characters.length;
+            document.getElementById('charName').innerText = characters[charIdx];
+        };
+
+        // 4. Map
         document.getElementById('btnMap').onclick = () => {
             mapIdx = (mapIdx + 1) % maps.length;
             const m = maps[mapIdx];
             document.getElementById('mapName').innerText = m.name;
             document.getElementById('mapName').style.color = '#' + m.color.toString(16).padStart(6, '0');
-            // Update Game Map
             if (window.game && window.game.loadMap) {
                 window.game.loadMap(m.id);
             }
         };
+
+        // Initial
+        updateUI();
     }
 
     start() {
         // Just start the render loop, but logic is paused until startGameLoop()
         this.running = false;
-        this.cameraMode = 'CHASE'; // CHASE or COCKPIT
+        this.cameraMode = 'CHASE';
         this.lastTime = performance.now();
+
+        this.setupAdvancedSelectionUI(); // Initialize new UI logic
+
         requestAnimationFrame(this.loop);
         window.game = this;
     }
 
     update(dt) {
         if (!this.running) {
-            // Rotate camera around car in garage mode?
+            // Garage Spin
             this.camera.position.x = this.car.x + Math.sin(Date.now() * 0.001) * 20;
             this.camera.position.z = this.car.z + Math.cos(Date.now() * 0.001) * 20;
             this.camera.position.y = 10;
@@ -390,8 +449,16 @@ class RaceGame {
             return;
         }
 
+        if (this.raceFinished) return; // Stop updates if done
+
         // Network Sync
         if (this.isMultiplayer) this.network.update(dt);
+
+        // Race Timer HUD
+        const totalTime = (Date.now() - this.startTime) / 1000;
+        const mins = Math.floor(totalTime / 60).toString().padStart(2, '0');
+        const secs = (totalTime % 60).toFixed(2).padStart(5, '0');
+        document.getElementById('lobbyStatus').innerText = `LAP ${this.currentLap}/${this.totalLaps} - TIME: ${mins}:${secs}`;
 
         // Physics
         if (Math.abs(this.car.speed) > 0.1) {
@@ -411,9 +478,7 @@ class RaceGame {
         if (this.car.speed > this.MAX_SPEED) this.car.speed = this.MAX_SPEED;
         if (this.car.speed < -this.MAX_SPEED / 2) this.car.speed = -this.MAX_SPEED / 2;
 
-        // Apply Velocity (Z is forward/back in 3D usually, X is left/right)
-        // In this scene: X is left/right, Z is forward/back. 
-        // 0 angle = pointing along -Z ? let's try standard math
+        // Apply Velocity
         this.car.x += Math.sin(this.car.angle) * this.car.speed;
         this.car.z += Math.cos(this.car.angle) * this.car.speed;
 
@@ -424,40 +489,25 @@ class RaceGame {
 
         // Camera Logic
         if (this.cameraMode === 'COCKPIT') {
-            // Inside Car
-            // Position slightly up and forward relative to car center
-            const offset = 0.5; // Forward
-            const height = 1.3; // Eye level
+            const offset = 0.5; const height = 1.3;
             this.camera.position.x = this.car.x + Math.sin(this.car.angle) * offset;
             this.camera.position.z = this.car.z + Math.cos(this.car.angle) * offset;
             this.camera.position.y = height;
-
-            // Look forward
-            const lookDist = 20;
-            const lx = this.car.x + Math.sin(this.car.angle) * lookDist;
-            const lz = this.car.z + Math.cos(this.car.angle) * lookDist;
+            const lx = this.car.x + Math.sin(this.car.angle) * 20;
+            const lz = this.car.z + Math.cos(this.car.angle) * 20;
             this.camera.lookAt(lx, height, lz);
-
         } else {
-            // Chase Cam
-            const camDist = 15;
-            const camHeight = 8;
+            const camDist = 15; const camHeight = 8;
             const cx = this.car.x - Math.sin(this.car.angle) * camDist;
             const cz = this.car.z - Math.cos(this.car.angle) * camDist;
-
             this.camera.position.x += (cx - this.camera.position.x) * 0.1;
             this.camera.position.z += (cz - this.camera.position.z) * 0.1;
             this.camera.position.y = camHeight;
             this.camera.lookAt(this.car.x, 0, this.car.z);
         }
 
-        // Checkpoints & Lap (Simple x-axis check logic translated)
-        // Previous logic relied on screen wrapping. Here we have a track.
-        // Let's implement a simple "Cross The Line" check.
-        // Finish line at X = 300? 
+        // Checkpoints & Lap
         if (this.car.x > 300 && !this.checkpointPassed) {
-            // Crossed finish line from left to right?
-            // Need vector logic, but simple check:
             this.completeLap();
         }
         if (this.car.x < -300) {
@@ -466,20 +516,26 @@ class RaceGame {
     }
 
     completeLap() {
-        if (!this.checkpointPassed) return; // Must have gone to other side
+        if (!this.checkpointPassed) return;
 
-        const lapTime = (Date.now() - this.startTime) / 1000;
-        this.startTime = Date.now();
         this.checkpointPassed = false;
 
-        // Timer HUD update done in separate overlay draw/dom update?
-        // Let's use DOM for HUD
-        document.getElementById('lobbyStatus').innerText = `TIME: ${lapTime.toFixed(2)}`;
-
-        if (lapTime < this.bestLapTime && lapTime > 5.0) { // Min 5s lap
-            this.bestLapTime = lapTime;
-            if (this.network) this.network.submitScore(this.playerName, this.bestLapTime);
+        // Lap complete
+        if (this.currentLap < this.totalLaps) {
+            this.currentLap++;
+        } else {
+            this.finishRace();
         }
+    }
+
+    finishRace() {
+        this.raceFinished = true;
+        const totalTime = (Date.now() - this.startTime) / 1000;
+
+        // Use alert for MVP results, then reload
+        const name = this.playerName;
+        alert(`RACE FINISHED!\nTotal Time: ${totalTime.toFixed(2)}s\nWinner: ${name}`);
+        location.reload(); // Go back to start
     }
 
     loop(timestamp) {
