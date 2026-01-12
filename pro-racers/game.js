@@ -265,6 +265,23 @@ class RaceGame {
 
     // --- LOGIC ---
 
+    startGameLoop() {
+        this.running = true;
+        this.startTime = Date.now(); // Reset timer on start
+        this.lastTime = performance.now();
+        console.log("RACE STARTED!");
+    }
+
+    toggleCamera() {
+        if (this.cameraMode === 'CHASE') {
+            this.cameraMode = 'COCKPIT';
+            return 'INSIDE';
+        } else {
+            this.cameraMode = 'CHASE';
+            return 'OUTSIDE';
+        }
+    }
+
     startMultiplayer(role) {
         this.isMultiplayer = true;
         this.network.listenForUpdates();
@@ -334,7 +351,6 @@ class RaceGame {
             this.updateCarType(c.id, c.color);
         };
 
-
         // Maps
         const maps = [
             { id: 'NEON', name: 'NEON OVAL', color: 0xff00ff },
@@ -356,13 +372,24 @@ class RaceGame {
     }
 
     start() {
-        this.running = true;
+        // Just start the render loop, but logic is paused until startGameLoop()
+        this.running = false;
+        this.cameraMode = 'CHASE'; // CHASE or COCKPIT
         this.lastTime = performance.now();
         requestAnimationFrame(this.loop);
         window.game = this;
     }
 
     update(dt) {
+        if (!this.running) {
+            // Rotate camera around car in garage mode?
+            this.camera.position.x = this.car.x + Math.sin(Date.now() * 0.001) * 20;
+            this.camera.position.z = this.car.z + Math.cos(Date.now() * 0.001) * 20;
+            this.camera.position.y = 10;
+            this.camera.lookAt(this.car.x, 0.5, this.car.z);
+            return;
+        }
+
         // Network Sync
         if (this.isMultiplayer) this.network.update(dt);
 
@@ -395,16 +422,34 @@ class RaceGame {
         this.car.mesh.position.z = this.car.z;
         this.car.mesh.rotation.y = this.car.angle;
 
-        // Camera Follow
-        const camDist = 15;
-        const camHeight = 8;
-        const cx = this.car.x - Math.sin(this.car.angle) * camDist;
-        const cz = this.car.z - Math.cos(this.car.angle) * camDist;
+        // Camera Logic
+        if (this.cameraMode === 'COCKPIT') {
+            // Inside Car
+            // Position slightly up and forward relative to car center
+            const offset = 0.5; // Forward
+            const height = 1.3; // Eye level
+            this.camera.position.x = this.car.x + Math.sin(this.car.angle) * offset;
+            this.camera.position.z = this.car.z + Math.cos(this.car.angle) * offset;
+            this.camera.position.y = height;
 
-        this.camera.position.x += (cx - this.camera.position.x) * 0.1;
-        this.camera.position.z += (cz - this.camera.position.z) * 0.1;
-        this.camera.position.y = camHeight;
-        this.camera.lookAt(this.car.x, 0, this.car.z);
+            // Look forward
+            const lookDist = 20;
+            const lx = this.car.x + Math.sin(this.car.angle) * lookDist;
+            const lz = this.car.z + Math.cos(this.car.angle) * lookDist;
+            this.camera.lookAt(lx, height, lz);
+
+        } else {
+            // Chase Cam
+            const camDist = 15;
+            const camHeight = 8;
+            const cx = this.car.x - Math.sin(this.car.angle) * camDist;
+            const cz = this.car.z - Math.cos(this.car.angle) * camDist;
+
+            this.camera.position.x += (cx - this.camera.position.x) * 0.1;
+            this.camera.position.z += (cz - this.camera.position.z) * 0.1;
+            this.camera.position.y = camHeight;
+            this.camera.lookAt(this.car.x, 0, this.car.z);
+        }
 
         // Checkpoints & Lap (Simple x-axis check logic translated)
         // Previous logic relied on screen wrapping. Here we have a track.
@@ -438,7 +483,7 @@ class RaceGame {
     }
 
     loop(timestamp) {
-        if (!this.running) return;
+        // ALWAYS loop so we can render title screen rotation
         const dt = timestamp - this.lastTime;
         this.lastTime = timestamp;
 
