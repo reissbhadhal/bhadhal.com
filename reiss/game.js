@@ -163,8 +163,8 @@ class FloatingText {
         ctx.save();
         ctx.fillStyle = this.color;
         ctx.font = 'bold 16px "Orbitron"';
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 5;
+        // ctx.shadowColor = this.color; // Optimized out
+        // ctx.shadowBlur = 5;
         ctx.globalAlpha = this.life / 60;
         ctx.fillText(this.text, this.x, this.y);
         ctx.restore();
@@ -218,10 +218,10 @@ class Bullet {
     draw(ctx) {
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = this.color;
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        // ctx.shadowBlur = 5; // Optimized out
+        // ctx.shadowColor = this.color;
+        // ctx.fill();
+        // ctx.shadowBlur = 0;
     }
 }
 
@@ -270,10 +270,10 @@ class Enemy {
             });
         });
 
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = this.color;
-        ctx.fill(); // Context fill doesn't help rects but shadow works
-        ctx.shadowBlur = 0;
+        // ctx.shadowBlur = 5; // Optimized out
+        // ctx.shadowColor = this.color;
+        // ctx.fill(); // Context fill doesn't help rects but shadow works
+        // ctx.shadowBlur = 0;
     }
 }
 
@@ -539,10 +539,11 @@ class Player {
         ctx.fill();
 
         // Shadow/Glow
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = this.color;
+        // Shadow/Glow
+        // ctx.shadowBlur = 10; // Optimized out
+        // ctx.shadowColor = this.color;
         ctx.fill();
-        ctx.shadowBlur = 0;
+        // ctx.shadowBlur = 0;
     }
 }
 
