@@ -877,39 +877,74 @@ function setupTouchControls() {
 }
 
 // EXPOSE TO WINDOW for index.html access
+// EXPOSE TO WINDOW for index.html access
 console.log("Defining window.initGame...");
 window.initGame = function () {
-    // Let's keep it simple: spawn at T=0.99, 0.98 etc.
+    // Sync Config from HTML
+    if (window.CONFIG) {
+        Object.assign(CONFIG, window.CONFIG);
+    }
+    if (window.selectedCharacter) {
+        CONFIG.selectedChar = window.selectedCharacter;
+    }
 
-    const startU = (1.0 - (row * 0.01)) % 1.0; // Place behind start line
-    const spawnPos = trackCurve.getPointAt(startU);
-    k.mesh.position.copy(spawnPos);
+    // Resume standard init
+    setupTrackLogic();
 
-    // Align to track tangent
-    const tangent = trackCurve.getTangentAt(startU);
-    const angle = Math.atan2(tangent.x, tangent.z);
-    k.angle = angle;
+    // Spawn Karts
+    // P1
+    const p1 = new Kart(0, true, CONFIG.selectedChar, -5);
+    p1.controlKeys = { up: 'w', down: 's', left: 'a', right: 'd', use: ' ' };
+    gameState.karts.push(p1);
 
-    // Side offset relative to direction
-    const right = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0, 1, 0)).normalize();
-    k.mesh.position.add(right.multiplyScalar(side));
-    k.mesh.position.y = 2;
+    // P2 or CPU
+    if (CONFIG.playMode === 2) {
+        const p2 = new Kart(1, true, 'luigi', 5);
+        p2.controlKeys = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', use: 'Enter' };
+        gameState.karts.push(p2);
+    } else if (CONFIG.playMode === 4) {
+        // Online P2P
+        const p2 = new Kart(1, false, 'luigi', 5, false, true);
+        gameState.karts.push(p2);
+        gameState.remoteKartId = 1;
+    } else {
+        // CPU 1
+        const char = 'luigi';
+        const cpu = new Kart(1, false, char, 5, true);
+        gameState.karts.push(cpu);
+    }
 
-    gameState.karts.push(k);
-}
+    // Other CPUs (Fill to 24)
+    const charsList = Object.keys(CHARACTERS);
+    const totalRacers = 24;
+    const filledSoFar = gameState.karts.length;
 
-gameState.isPlaying = true;
-gameState.startTime = Date.now();
-animate();
-}
+    for (let i = 0; i < (totalRacers - filledSoFar); i++) {
+        const c = charsList[i % charsList.length];
+        const row = Math.floor(i / 2) + 2;
+        const side = (i % 2 === 0) ? -4 : 4;
 
-try {
-    setupMultiplayer();
-} catch (e) { console.error("Multiplayer Setup Error:", e); }
+        const k = new Kart(i + filledSoFar, false, c, side, true); // All additional are CPUs
 
-try {
-    setupTouchControls();
-} catch (e) { console.error("Touch Controls Setup Error:", e); }
+        // Position logic
+        const startU = (1.0 - (row * 0.01)) % 1.0;
+        const spawnPos = trackCurve.getPointAt(startU);
+        k.mesh.position.copy(spawnPos);
+
+        const tangent = trackCurve.getTangentAt(startU);
+        k.angle = Math.atan2(tangent.x, tangent.z);
+
+        const right = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0, 1, 0)).normalize();
+        k.mesh.position.add(right.multiplyScalar(side));
+        k.mesh.position.y = 2;
+
+        gameState.karts.push(k);
+    }
+
+    gameState.isPlaying = true;
+    gameState.startTime = Date.now();
+    animate();
+};
 
 console.log("Game Engine Module Loaded Successfully");
 
