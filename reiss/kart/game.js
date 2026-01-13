@@ -876,17 +876,8 @@ function setupTouchControls() {
     } catch (e) { console.error("Touch Setup Error:", e); }
 }
 
-try {
-    setupMultiplayer();
-} catch (e) { console.error("Multiplayer Setup Error:", e); }
-
-try {
-    setupTouchControls();
-} catch (e) { console.error("Touch Controls Setup Error:", e); }
-
-console.log("Game Engine Module Loaded Successfully");
-
 // EXPOSE TO WINDOW for index.html access
+console.log("Defining window.initGame...");
 window.initGame = function () {
     // Sync Config from HTML
     if (window.CONFIG) {
@@ -971,6 +962,16 @@ window.initGame = function () {
     gameState.startTime = Date.now();
     animate();
 }
+
+try {
+    setupMultiplayer();
+} catch (e) { console.error("Multiplayer Setup Error:", e); }
+
+try {
+    setupTouchControls();
+} catch (e) { console.error("Touch Controls Setup Error:", e); }
+
+console.log("Game Engine Module Loaded Successfully");
 
 // --- LOOP ---
 // --- LOOP ---
