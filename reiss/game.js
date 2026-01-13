@@ -2,9 +2,9 @@
 // Constants
 const CANVAS_WIDTH = 600;
 const CANVAS_HEIGHT = 800;
-const PLAYER_SPEED = 10;
-const BULLET_SPEED = 15;
-const ENEMY_SPEED = 1;
+const PLAYER_SPEED = 600; // px per second (was 10 per frame)
+const BULLET_SPEED = 900; // px per second (was 15 per frame)
+const ENEMY_SPEED = 60;   // px per second (was 1 per frame)
 const ENEMY_DROP_DISTANCE = 20;
 
 const BG_GRADIENTS = [
@@ -154,9 +154,9 @@ class FloatingText {
         this.velocity = -1; // float up
     }
 
-    update() {
-        this.y += this.velocity;
-        this.life--;
+    update(dt) {
+        this.y += this.velocity * 60 * dt; // Scale velocity to time
+        this.life -= 60 * dt;
     }
 
     draw(ctx) {
@@ -182,11 +182,11 @@ class Particle {
         this.life = 100;
     }
 
-    update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
-        this.life -= 2;
-        this.size *= 0.95;
+    update(dt) {
+        this.x += this.speedX * 60 * dt;
+        this.y += this.speedY * 60 * dt;
+        this.life -= 120 * dt; // 2 per frame -> 120 per sec
+        this.size *= (1 - 1.0 * dt); // Approx decay
     }
 
     draw(ctx) {
@@ -211,8 +211,8 @@ class Bullet {
         this.color = isEnemy ? '#ff00ff' : '#00ffff';
     }
 
-    update() {
-        this.y += this.direction * BULLET_SPEED;
+    update(dt) {
+        this.y += this.direction * BULLET_SPEED * dt;
     }
 
     draw(ctx) {
@@ -239,8 +239,8 @@ class Enemy {
         this.color = '#39ff14';
     }
 
-    update(direction) {
-        this.x += direction * ENEMY_SPEED;
+    update(direction, dt) {
+        this.x += direction * ENEMY_SPEED * dt;
     }
 
     shoot() {
@@ -306,13 +306,13 @@ class Boss extends Enemy {
             this.name = "THE MOTHERSHIP";
         }
         this.maxHp = this.hp;
-        this.moveSpeed = 2;
+        this.moveSpeed = 120; // 2 px/frame -> 120 px/sec
         this.direction = 1;
     }
 
-    update() {
+    update(dt) {
         // Boss sweeps back and forth
-        this.x += this.direction * this.moveSpeed;
+        this.x += this.direction * this.moveSpeed * dt;
         if (this.x <= 0 || this.x + this.width >= CANVAS_WIDTH) {
             this.direction *= -1;
         }
@@ -426,22 +426,22 @@ class Player {
         this.y = CANVAS_HEIGHT - 50;
     }
 
-    updateInput(keys) {
+    updateInput(keys, dt) {
         if (this.id === 1) {
-            if (keys['ArrowLeft']) this.move(-1);
-            if (keys['ArrowRight']) this.move(1);
-            if (keys['ArrowUp']) this.moveY(-1);
-            if (keys['ArrowDown']) this.moveY(1);
+            if (keys['ArrowLeft']) this.move(-1, dt);
+            if (keys['ArrowRight']) this.move(1, dt);
+            if (keys['ArrowUp']) this.moveY(-1, dt);
+            if (keys['ArrowDown']) this.moveY(1, dt);
         } else if (this.id === 2) {
-            if (keys['KeyA']) this.move(-1);
-            if (keys['KeyD']) this.move(1);
-            if (keys['KeyW']) this.moveY(-1);
-            if (keys['KeyS']) this.moveY(1);
+            if (keys['KeyA']) this.move(-1, dt);
+            if (keys['KeyD']) this.move(1, dt);
+            if (keys['KeyW']) this.moveY(-1, dt);
+            if (keys['KeyS']) this.moveY(1, dt);
         } else if (this.id === 3) {
-            if (keys['KeyV']) this.move(-1);
-            if (keys['KeyN']) this.move(1);
-            if (keys['KeyG']) this.moveY(-1);
-            if (keys['KeyH']) this.moveY(1);
+            if (keys['KeyV']) this.move(-1, dt);
+            if (keys['KeyN']) this.move(1, dt);
+            if (keys['KeyG']) this.moveY(-1, dt);
+            if (keys['KeyH']) this.moveY(1, dt);
         }
     }
 
@@ -457,14 +457,14 @@ class Player {
         }
     }
 
-    move(dir) {
-        this.x += dir * PLAYER_SPEED;
+    move(dir, dt) {
+        this.x += dir * PLAYER_SPEED * dt;
         if (this.x < 0) this.x = 0;
         if (this.x + this.width > CANVAS_WIDTH) this.x = CANVAS_WIDTH - this.width;
     }
 
-    moveY(dir) {
-        this.y += dir * PLAYER_SPEED;
+    moveY(dir, dt) {
+        this.y += dir * PLAYER_SPEED * dt;
         // Limit vertical movement to bottom half of screen
         const minY = CANVAS_HEIGHT / 2;
         // Ensure player stays fully on screen with a buffer
@@ -477,15 +477,15 @@ class Player {
         this.game.bullets.push(new Bullet(this.x + this.width / 2, this.y, -1, false, this));
     }
 
-    update() {
-        if (this.invulnerable > 0) this.invulnerable--;
+    update(dt) {
+        if (this.invulnerable > 0) this.invulnerable -= 60 * dt; // 1 per frame -> 60 per sec
 
         if (this.isCpu) {
-            this.aiLogic();
+            this.aiLogic(dt);
         }
     }
 
-    aiLogic() {
+    aiLogic(dt) {
         // Advanced AI: Find lowest enemy (most threatening) first
         let targetEnemy = null;
         let maxY = -Infinity;
@@ -512,13 +512,13 @@ class Player {
             const target = targetEnemy.x + targetEnemy.width / 2;
 
             // Tighter movement threshold
-            if (Math.abs(center - target) > 2) {
-                if (center < target) this.move(1);
-                else this.move(-1);
+            if (Math.abs(center - target) > 5) { // Relax threshold slightly
+                if (center < target) this.move(1, dt);
+                else this.move(-1, dt);
             }
 
             // MAX AGGRESSION
-            if (Math.abs(center - target) < 60 && Math.random() < 0.9) {
+            if (Math.abs(center - target) < 60 && Math.random() < (0.9 * 60 * dt)) { // Scale prob by dt
                 this.shoot();
             }
         }
@@ -714,13 +714,13 @@ class Game {
 
         // Player Movement
         this.players.forEach(p => {
-            if (!p.isDead) p.updateInput(this.keys);
+            if (!p.isDead) p.updateInput(this.keys, dt);
         });
-        this.players.forEach(p => p.update());
+        this.players.forEach(p => p.update(dt));
 
         // Bullets
         this.bullets.forEach((b, i) => {
-            b.update();
+            b.update(dt);
             if (b.y < 0 || b.y > CANVAS_HEIGHT) {
                 // If bullet goes off screen (and is player's), count as miss
                 if (!b.isEnemy && b.owner) {
@@ -736,7 +736,9 @@ class Game {
         // Enemies
         let hitEdge = false;
         this.enemies.forEach(e => {
-            e.update(this.enemyDirection);
+            if (e instanceof Boss) e.update(dt);
+            else e.update(this.enemyDirection, dt);
+
             if (e.x <= 0 || e.x + e.width >= CANVAS_WIDTH) hitEdge = true;
         });
 
@@ -745,8 +747,8 @@ class Game {
             this.enemies.forEach(e => e.y += ENEMY_DROP_DISTANCE);
         }
 
-        // Enemy Shooting
-        const shootChance = 0.002 + (this.level * 0.001);
+        // Enemy Shooting - Scale chance by dt
+        const shootChance = (0.002 + (this.level * 0.001)) * 60 * dt;
 
         if (Math.random() < shootChance && this.enemies.length > 0) {
             const shooter = this.enemies[Math.floor(Math.random() * this.enemies.length)];
@@ -755,13 +757,13 @@ class Game {
 
         // Particles
         this.particles.forEach((p, i) => {
-            p.update();
+            p.update(dt);
             if (p.life <= 0) this.particles.splice(i, 1);
         });
 
         // Floating Texts
         this.floatingTexts.forEach((t, i) => {
-            t.update();
+            t.update(dt);
             if (t.life <= 0) this.floatingTexts.splice(i, 1);
         });
 
