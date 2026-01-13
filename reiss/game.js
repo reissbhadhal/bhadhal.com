@@ -1177,6 +1177,18 @@ class Game {
 }
 
 // Start Game
+// Start Game
 window.onload = () => {
-    window.game = new Game();
+    try {
+        console.log("Initializing Space Invaders...");
+        if (typeof Game === 'undefined') throw new Error("Game Class not defined");
+        if (typeof SocialManager === 'undefined') throw new Error("SocialManager Class not defined");
+        if (typeof NetworkManager === 'undefined') throw new Error("NetworkManager Class not defined");
+
+        window.game = new Game();
+        console.log("Game Initialized!");
+    } catch (e) {
+        console.error("CRITICAL INIT ERROR:", e);
+        alert("Space Invaders Init Error: " + e.message + "\n" + e.stack);
+    }
 };
