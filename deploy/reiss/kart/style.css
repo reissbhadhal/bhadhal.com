@@ -1,0 +1,4 @@
+/* Basic resets are handled in HTML style block for simplicity, but we can move them here later if it grows */
+body {
+    background-color: #333;
+}
