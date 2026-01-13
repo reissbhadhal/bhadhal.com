@@ -112,30 +112,131 @@ class RaceGame {
         }
     }
 
+    // --- NAVIGATION & RESPAWN ---
+
+    checkWaypoints() {
+        if (!this.waypoints || this.waypoints.length === 0) return;
+
+        const nextIdx = (this.lastWaypointIdx + 1) % this.waypoints.length;
+        const nextWP = this.waypoints[nextIdx];
+
+        // Distance to next
+        const dx = nextWP.x - this.car.x;
+        const dz = nextWP.z - this.car.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+
+        // Passed it? (Simple distance threshold)
+        if (dist < 60) {
+            this.lastWaypointIdx = nextIdx;
+            // Finish line logic if index 0
+            if (nextIdx === 0) this.completeLap();
+        }
+
+        // Wrong Way Check
+        // Vector to next WP
+        const vx = dx / dist;
+        const vz = dz / dist;
+        // Car forward vector
+        const cx = Math.sin(this.car.angle);
+        const cz = Math.cos(this.car.angle);
+
+        // Dot Product
+        const dot = vx * cx + vz * cz;
+
+        if (dot < -0.5 && this.car.speed > 0) {
+            // Facing away significantly and moving
+            this.respawnTimer++;
+            if (this.respawnTimer > 60) { // 1 second of wrong way
+                this.respawn();
+            }
+        } else {
+            this.respawnTimer = 0;
+        }
+    }
+
+    respawn() {
+        const wp = this.waypoints[this.lastWaypointIdx];
+        const nextWp = this.waypoints[(this.lastWaypointIdx + 1) % this.waypoints.length];
+
+        this.car.x = wp.x;
+        this.car.z = wp.z;
+        this.car.speed = 0;
+        // Face next point
+        this.car.angle = Math.atan2(nextWp.x - wp.x, nextWp.z - wp.z);
+
+        this.car.mesh.position.set(this.car.x, 0, this.car.z);
+        this.car.mesh.rotation.y = this.car.angle;
+
+        // Reset Camera
+        this.camera.position.x = this.car.x - Math.sin(this.car.angle) * 20;
+        this.camera.position.z = this.car.z - Math.cos(this.car.angle) * 20;
+
+        this.respawnTimer = 0;
+
+        // Visual Flare
+        document.getElementById('lobbyStatus').innerText = "WRONG WAY! RESPAWNING!";
+        setTimeout(() => document.getElementById('lobbyStatus').innerText = "", 1500);
+    }
+
+    createNeonArrow(x, z, angle) {
+        const shape = new THREE.Shape();
+        shape.moveTo(0, 0); shape.lineTo(-2, -3);
+        shape.lineTo(0, 4); shape.lineTo(2, -3); shape.lineTo(0, 0);
+
+        const geo = new THREE.ShapeGeometry(shape);
+        const mat = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+        const arrow = new THREE.Mesh(geo, mat);
+
+        arrow.position.set(x, 15, z);
+        arrow.rotation.x = 0;
+        arrow.rotation.y = angle; // Face direction
+        arrow.scale.set(3, 3, 3);
+
+        // Pulsating glow via update loop? Or just static neon for now.
+        this.trackGroup.add(arrow);
+    }
+
     createTrackNeon() {
-        // Ground
+        this.waypoints = [];
         this.createGround(0x111111);
-        // Walls
-        this.createWall(0, 0, 800, 500, 0xff00ff); // Outer
-        this.createWall(0, 0, 600, 300, 0x00ffff); // Inner
+        this.createWall(0, 0, 800, 500, 0xff00ff);
+        this.createWall(0, 0, 600, 300, 0x00ffff);
+
+        // Waypoints (Rectangular Loop)
+        this.waypoints.push({ x: 350, z: 0 }); // Start
+        this.waypoints.push({ x: 350, z: 200 });
+        this.waypoints.push({ x: -350, z: 200 });
+        this.waypoints.push({ x: -350, z: -200 });
+        this.waypoints.push({ x: 350, z: -200 });
+        this.lastWaypointIdx = 0;
+
+        // Signs
+        this.createNeonArrow(350, 100, Math.PI); // South
+        this.createNeonArrow(0, 200, Math.PI / 2); // West
+        this.createNeonArrow(-350, 0, 0); // North
+        this.createNeonArrow(0, -200, -Math.PI / 2); // East
     }
 
     createTrackDesert() {
-        // Ground - Sand
-        this.createGround(0xE6C229); // Gold/Sand
-
-        // Track boundaries (Rocks/Canyons)
+        this.createGround(0xE6C229);
         this.createWall(0, 0, 800, 500, 0xA0522D);
         this.createWall(0, 0, 600, 300, 0xA0522D);
 
-        // Cacti
+        this.waypoints = [
+            { x: 350, z: 0 }, { x: 350, z: 200 }, { x: -350, z: 200 },
+            { x: -350, z: -200 }, { x: 350, z: -200 }
+        ];
+        this.lastWaypointIdx = 0;
+
+        // Signs
+        this.createNeonArrow(350, 100, Math.PI);
+        this.createNeonArrow(0, 200, Math.PI / 2);
+        this.createNeonArrow(-350, 0, 0);
+        this.createNeonArrow(0, -200, -Math.PI / 2);
+
         for (let i = 0; i < 20; i++) {
             const h = 5 + Math.random() * 10;
-            const cactus = new THREE.Mesh(
-                new THREE.CylinderGeometry(1, 1, h, 8),
-                new THREE.MeshStandardMaterial({ color: 0x228b22 }) // Forest Green
-            );
-            // Random position outside inner loop
+            const cactus = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, h, 8), new THREE.MeshStandardMaterial({ color: 0x228b22 }));
             const angle = Math.random() * Math.PI * 2;
             const rad = 350 + Math.random() * 50;
             cactus.position.set(Math.cos(angle) * rad, h / 2, Math.sin(angle) * rad);
@@ -144,29 +245,33 @@ class RaceGame {
     }
 
     createTrackCity() {
-        // Ground - Asphalt
         this.createGround(0x222222);
+        this.createWall(0, 0, 800, 500, 0x555555, 30);
+        this.createWall(0, 0, 600, 300, 0x333333, 20);
 
-        // Buildings instad of walls
-        this.createWall(0, 0, 800, 500, 0x555555, 30); // Tall outer walls
-        this.createWall(0, 0, 600, 300, 0x333333, 20); // Inner block
+        this.waypoints = [
+            { x: 350, z: 0 }, { x: 350, z: 200 }, { x: -350, z: 200 },
+            { x: -350, z: -200 }, { x: 350, z: -200 }
+        ];
+        this.lastWaypointIdx = 0;
 
-        // Street Lights or Deco
-        // Simple glowing posts
-        for (let i = 0; i < 10; i++) {
-            const h = 15;
-            const pole = new THREE.Mesh(
-                new THREE.BoxGeometry(1, h, 1),
-                new THREE.MeshStandardMaterial({ color: 0x888888 })
-            );
-            const light = new THREE.Mesh(
-                new THREE.BoxGeometry(2, 2, 2),
-                new THREE.MeshStandardMaterial({ color: 0xffffaa, emissive: 0xffffaa })
-            );
-            pole.position.set(-300 + i * 60, h / 2, -260);
-            light.position.set(0, h / 2, 0);
-            pole.add(light);
-            this.trackGroup.add(pole);
+        // Signs
+        this.createNeonArrow(350, 100, Math.PI);
+        this.createNeonArrow(0, 200, Math.PI / 2);
+        this.createNeonArrow(-350, 0, 0);
+        this.createNeonArrow(0, -200, -Math.PI / 2);
+    }
+
+    completeLap() {
+        // if(!this.checkpointPassed) return; // Legacy check
+
+        // Lap complete
+        if (this.currentLap < this.totalLaps) {
+            this.currentLap++;
+            // Visual Pop
+            document.getElementById('lobbyStatus').innerText = `LAP ${this.currentLap}/${this.totalLaps}`;
+        } else {
+            this.finishRace();
         }
     }
 
@@ -506,13 +611,8 @@ class RaceGame {
             this.camera.lookAt(this.car.x, 0, this.car.z);
         }
 
-        // Checkpoints & Lap
-        if (this.car.x > 300 && !this.checkpointPassed) {
-            this.completeLap();
-        }
-        if (this.car.x < -300) {
-            this.checkpointPassed = true;
-        }
+        // Checkpoints & Waypoint Logic
+        this.checkWaypoints();
     }
 
     completeLap() {
