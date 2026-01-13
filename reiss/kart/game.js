@@ -879,88 +879,28 @@ function setupTouchControls() {
 // EXPOSE TO WINDOW for index.html access
 console.log("Defining window.initGame...");
 window.initGame = function () {
-    // Sync Config from HTML
-    if (window.CONFIG) {
-        Object.assign(CONFIG, window.CONFIG);
-    }
-    if (window.selectedCharacter) {
-        CONFIG.selectedChar = window.selectedCharacter;
-    }
+    // Let's keep it simple: spawn at T=0.99, 0.98 etc.
 
-    // Resume standard init
-    setupTrackLogic();
+    const startU = (1.0 - (row * 0.01)) % 1.0; // Place behind start line
+    const spawnPos = trackCurve.getPointAt(startU);
+    k.mesh.position.copy(spawnPos);
 
-    // Spawn Karts
-    // 6 Karts Total
-    // P1
-    const p1 = new Kart(0, true, CONFIG.selectedChar, -5);
-    p1.controlKeys = { up: 'w', down: 's', left: 'a', right: 'd', use: ' ' };
-    gameState.karts.push(p1);
+    // Align to track tangent
+    const tangent = trackCurve.getTangentAt(startU);
+    const angle = Math.atan2(tangent.x, tangent.z);
+    k.angle = angle;
 
-    // P2 or CPU
-    if (CONFIG.playMode === 2) {
-        // P2 defaults to Luigi for now or random
-        const p2 = new Kart(1, true, 'luigi', 5);
-        p2.controlKeys = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', use: 'Enter' };
-        gameState.karts.push(p2);
-    } else if (CONFIG.playMode === 4) {
-        // Online P2P: P1 is local, P2 is network ghost
-        const p2 = new Kart(1, false, 'luigi', 5, false, true); // Not player, not CPU, IS network ghost
-        gameState.karts.push(p2);
-        gameState.remoteKartId = 1; // Store the index of the remote kart
-    } else {
-        // CPU 1
-        const char = 'luigi';
-        const cpu = new Kart(1, false, char, 5, true);
-        gameState.karts.push(cpu);
-    }
+    // Side offset relative to direction
+    const right = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0, 1, 0)).normalize();
+    k.mesh.position.add(right.multiplyScalar(side));
+    k.mesh.position.y = 2;
 
-    // Other CPUs (Fill to 24)
-    const charsList = Object.keys(CHARACTERS);
-    const totalRacers = 24;
-    const filledSoFar = gameState.karts.length;
+    gameState.karts.push(k);
+}
 
-    for (let i = 0; i < (totalRacers - filledSoFar); i++) {
-        const c = charsList[i % charsList.length]; // Cycle through roster
-        // Grid Spawning Logic:
-        // Rows of 2: Left (-3), Right (3)
-        // Staggered back every row (-4 units)
-        // Offset starting at i=0 (but we have karts already)
-        const row = Math.floor(i / 2) + 2; // +2 to start behind players
-        const side = (i % 2 === 0) ? -4 : 4;
-        const zOffset = -row * 6; // Spaced out
-
-        const k = new Kart(i + filledSoFar, false, c, side, true); // All additional are CPUs
-
-        // Manual override for spawn Z (Kart class defaults to curve start)
-        // We need to move them BACK along the track (negative Z locally?)
-        // Currently Kart spawns at track T=0 + offset X.
-        // To spawn behind, we need T < 0 (loop around) or just move mesh back?
-        // Simpler: Just spawn at T=0 and move mesh.z backwards
-        // But the track curves. 
-        // Better: Use getPointAt with slightly negative u (wrapped)?
-        // Let's keep it simple: spawn at T=0.99, 0.98 etc.
-
-        const startU = (1.0 - (row * 0.01)) % 1.0; // Place behind start line
-        const spawnPos = trackCurve.getPointAt(startU);
-        k.mesh.position.copy(spawnPos);
-
-        // Align to track tangent
-        const tangent = trackCurve.getTangentAt(startU);
-        const angle = Math.atan2(tangent.x, tangent.z);
-        k.angle = angle;
-
-        // Side offset relative to direction
-        const right = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0, 1, 0)).normalize();
-        k.mesh.position.add(right.multiplyScalar(side));
-        k.mesh.position.y = 2;
-
-        gameState.karts.push(k);
-    }
-
-    gameState.isPlaying = true;
-    gameState.startTime = Date.now();
-    animate();
+gameState.isPlaying = true;
+gameState.startTime = Date.now();
+animate();
 }
 
 try {
