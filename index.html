@@ -3,304 +3,178 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bhadhal.com - Game Portal</title>
-    <meta name="description" content="Welcome to bhadhal.com - Choose your game world">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reiss's Invaders - Space Shooter Game</title>
+
+    <!-- SEO Meta Tags -->
+    <meta name="description"
+        content="Play Reiss's Invaders - A retro-style multiplayer Space Invaders game. 1-3 players, arcade action, neon graphics!">
+    <meta name="keywords" content="space invaders, arcade game, retro game, multiplayer game, browser game">
+    <meta name="author" content="Reiss Bhadhal">
+
+    <!-- Open Graph / Social Sharing Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://bhadhal.com/reiss/">
+    <meta property="og:title" content="Reiss's Invaders - Space Shooter Game">
+    <meta property="og:description"
+        content="Play the classic arcade game remixed! 1-3 players, retro neon graphics, and endless alien waves. Can you survive?">
+    <meta property="og:image" content="https://bhadhal.com/reiss/social-preview.png">
+    <meta property="og:image:width" content="1024">
+    <meta property="og:image:height" content="1024">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Reiss's Invaders - Space Shooter Game">
+    <meta name="twitter:description"
+        content="Play the classic arcade game remixed! 1-3 players, retro neon graphics, and endless alien waves.">
+    <meta name="twitter:image" content="https://bhadhal.com/reiss/social-preview.png">
+
+    <!-- Favicon -->
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👾</text></svg>">
+
+    <link rel="stylesheet" href="style.css?v=1.2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap"
         rel="stylesheet">
-    <style>
-        :root {
-            --bg-color: #050510;
-            --reiss-blue: #00ffff;
-            --reiss-dark: #004444;
-            --pro-red: #ff3300;
-            --pro-dark: #441100;
-            --anaia-pink: #ff00ff;
-            --anaia-dark: #440044;
-            --text-color: #ffffff;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: 'Share Tech Mono', monospace;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            /* Prevent scroll on desktop split */
-        }
-
-        .scanlines {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: linear-gradient(to bottom,
-                    rgba(255, 255, 255, 0),
-                    rgba(255, 255, 255, 0) 50%,
-                    rgba(0, 0, 0, 0.2) 50%,
-                    rgba(0, 0, 0, 0.2));
-            background-size: 100% 4px;
-            pointer-events: none;
-            z-index: 100;
-            animation: scanlineScroll 0.2s linear infinite;
-            mix-blend-mode: overlay;
-        }
-
-        @keyframes scanlineScroll {
-            0% {
-                transform: translateY(0);
-            }
-
-            100% {
-                transform: translateY(4px);
-            }
-        }
-
-        /* Split Screen Layout */
-        .split-container {
-            display: flex;
-            width: 100%;
-            height: 100vh;
-        }
-
-        .split {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            transition: all 0.5s ease;
-            cursor: pointer;
-            text-decoration: none;
-            overflow: hidden;
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .split:last-child {
-            border-right: none;
-        }
-
-        /* Reiss Side */
-        .split.reiss {
-            background: linear-gradient(135deg, #050510 0%, #0a1a2a 100%);
-        }
-
-        .split.reiss::before {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, rgba(0, 255, 255, 0.1) 0%, transparent 70%);
-            opacity: 0.5;
-            transition: opacity 0.5s ease;
-        }
-
-        /* Pro Racers Side */
-        .split.pro {
-            background: linear-gradient(135deg, #100505 0%, #2a1005 100%);
-        }
-
-        .split.pro::before {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, rgba(255, 50, 0, 0.1) 0%, transparent 70%);
-            opacity: 0.5;
-            transition: opacity 0.5s ease;
-        }
-
-        /* Anaia Side */
-        .split.anaia {
-            background: linear-gradient(135deg, #100510 0%, #2a0a2a 100%);
-        }
-
-        .split.anaia::before {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, rgba(255, 0, 255, 0.1) 0%, transparent 70%);
-            opacity: 0.5;
-            transition: opacity 0.5s ease;
-        }
-
-        /* Hover Effects */
-        .split:hover {
-            flex: 2;
-            /* Increased expansion */
-            z-index: 10;
-        }
-
-        .split.reiss:hover {
-            box-shadow: inset 0 0 50px rgba(0, 255, 255, 0.2);
-        }
-
-        .split.pro:hover {
-            box-shadow: inset 0 0 50px rgba(255, 50, 0, 0.2);
-        }
-
-        .split.anaia:hover {
-            box-shadow: inset 0 0 50px rgba(255, 0, 255, 0.2);
-        }
-
-        /* Content Styling */
-        h2 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 2.5rem;
-            /* Slightly smaller for 3 cols */
-            margin-bottom: 20px;
-            z-index: 2;
-            transition: transform 0.3s ease;
-            text-align: center;
-            padding: 0 10px;
-            line-height: 1.1;
-        }
-
-        .split.reiss h2 {
-            color: var(--reiss-blue);
-            text-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
-        }
-
-        .split.pro h2 {
-            color: var(--pro-red);
-            text-shadow: 0 0 20px rgba(255, 50, 0, 0.6);
-        }
-
-        .split.anaia h2 {
-            color: var(--anaia-pink);
-            text-shadow: 0 0 20px rgba(255, 0, 255, 0.6);
-        }
-
-        .desc {
-            font-size: 1rem;
-            color: rgba(255, 255, 255, 0.8);
-            z-index: 2;
-            opacity: 0.7;
-            transition: opacity 0.3s ease;
-            max-width: 90%;
-            text-align: center;
-        }
-
-        .btn {
-            margin-top: 40px;
-            padding: 15px 30px;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.1rem;
-            border-radius: 4px;
-            border: 2px solid;
-            background: transparent;
-            z-index: 2;
-            transition: all 0.3s ease;
-            opacity: 0;
-            /* Hidden by default, shown on hover */
-            transform: translateY(20px);
-            white-space: nowrap;
-        }
-
-        .split:hover .btn {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .split.reiss .btn {
-            color: var(--reiss-blue);
-            border-color: var(--reiss-blue);
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
-        }
-
-        .split.reiss:hover .btn {
-            background: rgba(0, 255, 255, 0.1);
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
-        }
-
-        .split.pro .btn {
-            color: var(--pro-red);
-            border-color: var(--pro-red);
-            box-shadow: 0 0 15px rgba(255, 50, 0, 0.2);
-        }
-
-        .split.pro:hover .btn {
-            background: rgba(255, 50, 0, 0.1);
-            box-shadow: 0 0 30px rgba(255, 50, 0, 0.4);
-        }
-
-        .split.anaia .btn {
-            color: var(--anaia-pink);
-            border-color: var(--anaia-pink);
-            box-shadow: 0 0 15px rgba(255, 0, 255, 0.2);
-        }
-
-        .split.anaia:hover .btn {
-            background: rgba(255, 0, 255, 0.1);
-            box-shadow: 0 0 30px rgba(255, 0, 255, 0.4);
-        }
-
-        /* Mobile Responsiveness */
-        @media (max-width: 768px) {
-            .split-container {
-                flex-direction: column;
-            }
-
-            .split:hover {
-                flex: 1;
-                /* Disable expand on mobile */
-            }
-
-            .split {
-                border-right: none;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            }
-
-            h2 {
-                font-size: 2rem;
-            }
-
-            .btn {
-                opacity: 1;
-                transform: translateY(0);
-                padding: 10px 30px;
-                font-size: 1rem;
-                margin-top: 20px;
-            }
-        }
-    </style>
 </head>
 
 <body>
     <div class="scanlines"></div>
-    <div class="split-container">
-        <!-- Reiss's Section -->
-        <a href="/reiss/" class="split reiss">
-            <h2>REISS<br><span style="font-size: 0.6em; opacity: 0.8">INVADERS</span></h2>
-            <div class="btn">ENTER SECTOR</div>
-        </a>
+    <div class="game-container">
+        <header class="hud">
+            <div class="score-board">
+                <span class="label">SCORE</span>
+                <span id="score">000000</span>
+            </div>
+            <div class="title-display">REISS'S INVADERS</div>
+            <div class="lives-board">
+                <span class="label">LIVES</span>
+                <span id="lives">3</span>
+            </div>
+            <div class="time-board" style="text-align: right;">
+                <span class="label">TIME</span>
+                <span id="timer">60</span>
+            </div>
+        </header>
 
-        <!-- Pro Racers Section -->
-        <!-- Pro Racers Section -->
-        <a href="reiss/kart/" class="split pro">
-            <h2>PRO<br><span style="font-size: 0.6em; opacity: 0.8">RACERS</span></h2>
-            <div class="btn">START ENGINE</div>
-        </a>
+        <canvas id="gameCanvas"></canvas>
 
-        <!-- Anaia's Section -->
-        <a href="/anaia/" class="split anaia">
-            <h2>ANAIA<br><span style="font-size: 0.6em; opacity: 0.8">WORLD</span></h2>
-            <div class="btn">ENTER PORTAL</div>
-        </a>
+        <div id="loginScreen" class="overlay">
+            <h1 style="font-size: 2.5rem; margin-bottom: 40px;">SECURITY CHECKPOINT</h1>
+            <div class="login-form">
+                <input type="text" id="loginUser" placeholder="ENTER PILOT NAME" autocomplete="off">
+                <button id="btnLogin">INITIALIZE UPLINK</button>
+            </div>
+            <p style="margin-top: 20px; font-size: 0.8rem; color: var(--neon-red);" id="loginMsg"></p>
+        </div>
+
+        <div id="startScreen" class="overlay hidden">
+            <h1>REISS'S SPACE INVADERS</h1>
+            <div style="margin-bottom: 20px; font-size: 1.2rem;">
+                <p>PRESS <span class="blink">[1]</span> FOR 1 PLAYER</p>
+                <p>PRESS <span class="blink">[2]</span> FOR 2 PLAYERS</p>
+                <p>PRESS <span class="blink">[3]</span> FOR CPU CO-OP</p>
+                <p>PRESS <span class="blink">[4]</span> FOR 3 PLAYERS</p>
+            </div>
+
+            <div class="mobile-start-buttons">
+                <button onclick="window.game.startGame(1)">1 PLAYER</button>
+                <button onclick="window.game.startGame(2)">2 PLAYERS</button>
+                <button onclick="window.game.startGame(2, true)">CPU CO-OP</button>
+                <button onclick="window.game.startGame(3)">3 PLAYERS</button>
+            </div>
+
+            <div id="connectionStatus" style="font-size: 0.8rem; color: #666; margin-bottom: 10px;">CONNECTING TO
+                SATELLITE...</div>
+
+            <button id="btnSocial" class="social-btn">👥 SOCIAL HUB</button>
+
+            <div class="controls-hint" style="flex-direction: column; gap: 10px;">
+                <div style="color: #00ffff">P1: ← → ↑ ↓ MOVE | SPACE SHOOT</div>
+                <div style="color: #ffaa00">P2: A D W S MOVE | F SHOOT</div>
+                <div style="color: #39ff14">P3: V N G H MOVE | B SHOOT</div>
+            </div>
+
+            <div id="highScores" class="high-scores">
+                <h3>TOP COMMANDERS</h3>
+                <ul id="scoreList"></ul>
+            </div>
+        </div>
+
+        <div id="socialOverlay" class="overlay hidden">
+            <h2>🌍 SOCIAL DATALINK</h2>
+            <div class="social-container">
+                <div class="add-friend-section">
+                    <input type="text" id="friendInput" placeholder="ENTER USERNAME..." autocomplete="off">
+                    <button id="btnAddFriend">ADD</button>
+                    <button id="btnCloseSocial" style="background: #333;">CLOSE</button>
+                </div>
+                <p id="socialMsg" style="font-size: 0.8rem; margin: 5px 0; min-height: 1.2em;"></p>
+                <div class="friend-list-container">
+                    <h3>ALLIES ESTABLISHED</h3>
+                    <ul id="friendList">
+                        <!-- Friend items will go here -->
+                        <li style="color: #666; font-style: italic;">NO ALLIES FOUND</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="gameOverScreen" class="overlay hidden" onclick="location.reload()">
+            <h1 class="danger">GAME OVER</h1>
+            <p>FINAL SCORE: <span id="finalScore">0</span></p>
+            <div id="gameStats" style="margin: 15px 0; font-family: 'Share Tech Mono', monospace; font-size: 0.9rem;">
+            </div>
+            <p>CLICK OR PRESS <span class="blink">SPACE</span> TO RESTART</p>
+        </div>
     </div>
+
+    <div id="mobileControls" class="mobile-controls">
+        <div class="d-pad">
+            <button id="btnUp">↑</button>
+            <div class="horizontal">
+                <button id="btnLeft">←</button>
+                <button id="btnRight">→</button>
+            </div>
+            <button id="btnDown">↓</button>
+        </div>
+        <button id="btnShoot" class="shoot-btn">🔥</button>
+    </div>
+
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // TODO: PASTE YOUR FIREBASE CONFIG HERE
+        // 1. Go to console.firebase.google.com
+        // 2. Create Project -> Add Web App
+        // 3. Copy the 'firebaseConfig' object and paste it below replacing the empty object
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBEK728sxamdYrWyTmv-DacTEf5cs8Qfyc",
+            authDomain: "spaceinvaders-ace73.firebaseapp.com",
+            projectId: "spaceinvaders-ace73",
+            storageBucket: "spaceinvaders-ace73.firebasestorage.app",
+            messagingSenderId: "1055474779844",
+            appId: "1:1055474779844:web:5033a5fc644f2437deeb91",
+            measurementId: "G-L200ZZ9YXC"
+        };
+
+        // Initialize Firebase
+        if (firebaseConfig.apiKey) {
+            firebase.initializeApp(firebaseConfig);
+            window.db = firebase.firestore();
+            console.log("Firebase Initialized");
+        } else {
+            console.warn("Firebase Config missing! Leaderboard will be offline.");
+        }
+    </script>
+    <script src="SocialManager.js"></script>
+    <script src="NetworkManager.js"></script>
+    <script src="game.js?v=4.2"></script>
 </body>
 
 </html>
