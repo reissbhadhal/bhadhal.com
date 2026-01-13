@@ -585,6 +585,10 @@ class Game {
         this.highScoreManager = new HighScoreManager();
         this.socialManager = new SocialManager(this);
         this.networkManager = new NetworkManager(this);
+
+        // Bind loop to preserve 'this' context
+        this.loop = this.loop.bind(this);
+
         this.init();
     }
 
@@ -592,6 +596,9 @@ class Game {
         this.setupLogin();
         this.setupInput();
         this.socialManager.initUser(this.currentPlayerName);
+
+        // Start the game loop
+        this.loop();
     }
 
     // MULTIPLAYER METHODS
