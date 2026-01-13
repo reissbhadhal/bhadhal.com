@@ -209,6 +209,12 @@
                 <h2>BATTLE MODE</h2>
                 <p>Coin Runners (4 Teams)</p>
             </div>
+            <div class="mode-card" onclick="selectMode('split')"
+                style="background:#442200; padding:30px; border-radius:15px; cursor:pointer; border:2px solid #ffaa00; text-align:center; transition:0.3s; grid-column: span 2;">
+                <div style="font-size:50px;">👥</div>
+                <h2>2 PLAYER SPLIT</h2>
+                <p>Local Multiplayer (WASD + Arrows)</p>
+            </div>
             <div class="mode-card" onclick="selectMode('online')"
                 style="background:#000044; padding:30px; border-radius:15px; cursor:pointer; border:2px solid #00aaaa; text-align:center; transition:0.3s;">
                 <div style="font-size:50px;">🌐</div>
@@ -424,7 +430,7 @@
             // 2. MAIN MENU SEL
             window.selectMode = function (mode) {
                 gameConfig.mode = mode;
-                if (mode === 'gp' || mode === 'roam') {
+                if (mode === 'gp' || mode === 'roam' || mode === 'split') {
                     showPanel('vehicle-select-panel');
                 } else if (mode === 'vs') {
                     showPanel('vs-settings');
@@ -585,7 +591,7 @@
                     document.getElementById('ui-layer').style.display = 'block';
 
                     window.CONFIG = {
-                        playMode: 1,
+                        playMode: gameConfig.mode === 'split' ? 2 : (gameConfig.mode === 'online' ? 4 : 1),
                         difficulty: gameConfig.vsSettings.diff || 'medium',
                         totalLaps: gameConfig.mode === 'roam' ? 999 : (gameConfig.mode === 'battle' ? 999 : 3),
                         gameMode: gameConfig.mode,
