@@ -739,7 +739,15 @@ class Game {
             if (e instanceof Boss) e.update(dt);
             else e.update(this.enemyDirection, dt);
 
-            if (e.x <= 0 || e.x + e.width >= CANVAS_WIDTH) hitEdge = true;
+            // Fix: Only trigger edge hit if moving TOWARDS the edge
+            // And clamp position to prevent getting stuck
+            if (e.x <= 0 && this.enemyDirection < 0) {
+                hitEdge = true;
+                e.x = 0;
+            } else if (e.x + e.width >= CANVAS_WIDTH && this.enemyDirection > 0) {
+                hitEdge = true;
+                e.x = CANVAS_WIDTH - e.width;
+            }
         });
 
         if (hitEdge) {
