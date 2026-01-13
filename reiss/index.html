@@ -74,14 +74,15 @@
             <h1>REISS'S SPACE INVADERS</h1>
             <div style="margin-bottom: 20px; font-size: 1.2rem;">
                 <p>PRESS <span class="blink">[1]</span> FOR 1 PLAYER</p>
-                <p>PRESS <span class="blink">[2]</span> FOR 2 PLAYERS</p>
+                <p style="color: grey;">[2] COMING SOON...</p>
                 <p>PRESS <span class="blink">[3]</span> FOR CPU CO-OP</p>
                 <p>PRESS <span class="blink">[4]</span> FOR 3 PLAYERS</p>
             </div>
 
             <div class="mobile-start-buttons">
                 <button onclick="window.game.startGame(1)">1 PLAYER</button>
-                <button onclick="window.game.startGame(2)">2 PLAYERS</button>
+                <button disabled style="opacity: 0.5; background: #333; color: #666; cursor: not-allowed;">COMING
+                    SOON</button>
                 <button onclick="window.game.startGame(2, true)">CPU CO-OP</button>
                 <button onclick="window.game.startGame(3)">3 PLAYERS</button>
             </div>

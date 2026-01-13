@@ -878,7 +878,7 @@ class Game {
 
             if (this.state === 'START') {
                 if (e.key === '1') this.startGame(1);
-                if (e.key === '2') this.startGame(2);
+                // if (e.key === '2') this.startGame(2); // Disabled for new game
                 if (e.key === '3') this.startGame(2, true);
                 if (e.key === '4') this.startGame(3);
             } else if (this.state === 'GAMEOVER') {
