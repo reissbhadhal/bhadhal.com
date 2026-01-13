@@ -199,85 +199,132 @@ class Kart {
         const group = new THREE.Group();
 
         if (this.vehicleType === 'car') {
-            // --- F1 CAR HELPER ---
-            const matBody = new THREE.MeshPhongMaterial({ color: color, shininess: 100 });
-            const matDark = new THREE.MeshPhongMaterial({ color: 0x111111, shininess: 50 });
-            // ... (Same F1 code as before)
-            const bodyGeo = new THREE.BoxGeometry(0.8, 0.5, 3.5);
+            // --- UPDATED REALISTIC F1 CAR ---
+            const matBody = new THREE.MeshPhongMaterial({ color: color, shininess: 120, specular: 0x555555 });
+            const matDark = new THREE.MeshPhongMaterial({ color: 0x1a1a1a, shininess: 30 });
+            const matCarbon = new THREE.MeshPhongMaterial({ color: 0x111111, shininess: 60 });
+
+            // 1. Main Body (Nose to Tail)
+            // Slim nose
+            const noseGeo = new THREE.BoxGeometry(0.6, 0.4, 1.5);
+            const nose = new THREE.Mesh(noseGeo, matBody);
+            nose.position.set(0, 0.4, 2.0); // Forward
+            group.add(nose);
+
+            // Cockpit / Center Body
+            const bodyGeo = new THREE.BoxGeometry(0.9, 0.6, 1.8);
             const body = new THREE.Mesh(bodyGeo, matBody);
-            body.position.y = 0.5;
+            body.position.set(0, 0.6, 0.5);
             group.add(body);
 
-            // Side Pods
-            const sGeo = new THREE.BoxGeometry(0.6, 0.5, 1.2);
-            const lPod = new THREE.Mesh(sGeo, matBody); lPod.position.set(-0.7, 0.4, 0.2); group.add(lPod);
-            const rPod = new THREE.Mesh(sGeo, matBody); rPod.position.set(0.7, 0.4, 0.2); group.add(rPod);
+            // Engine Cover (Rear)
+            const engineGeo = new THREE.BoxGeometry(1.0, 0.7, 1.5);
+            const engine = new THREE.Mesh(engineGeo, matBody);
+            engine.position.set(0, 0.7, -1.0);
+            group.add(engine);
 
-            // Rear Wing
-            const wingGeo = new THREE.BoxGeometry(2.0, 0.1, 0.5);
-            const wing = new THREE.Mesh(wingGeo, matBody);
-            wing.position.set(0, 1.0, -1.5);
-            group.add(wing);
-            // Wing Supports
-            const supGeo = new THREE.BoxGeometry(0.1, 0.6, 0.3);
-            const leftSup = new THREE.Mesh(supGeo, matDark);
-            leftSup.position.set(-0.5, 0.7, -1.5);
-            group.add(leftSup);
-            const rightSup = new THREE.Mesh(supGeo, matDark);
-            rightSup.position.set(0.5, 0.7, -1.5);
-            group.add(rightSup);
+            // Air Intake (Top)
+            const intakeGeo = new THREE.BoxGeometry(0.5, 0.4, 0.6);
+            const intake = new THREE.Mesh(intakeGeo, matDark);
+            intake.position.set(0, 1.1, -0.2);
+            group.add(intake);
+
+            // Side Pods (Aerodynamics)
+            const podGeo = new THREE.BoxGeometry(0.6, 0.5, 1.8);
+            const lPod = new THREE.Mesh(podGeo, matBody); lPod.position.set(-0.9, 0.4, 0); group.add(lPod);
+            const rPod = new THREE.Mesh(podGeo, matBody); rPod.position.set(0.9, 0.4, 0); group.add(rPod);
 
             // Front Wing
-            const fGeo = new THREE.BoxGeometry(2.2, 0.1, 0.4);
-            const fWing = new THREE.Mesh(fGeo, matBody); fWing.position.set(0, 0.25, 1.8); group.add(fWing);
+            const fWingGeo = new THREE.BoxGeometry(2.4, 0.1, 0.6);
+            const fWing = new THREE.Mesh(fWingGeo, matBody);
+            fWing.position.set(0, 0.2, 2.7);
+            group.add(fWing);
+            // Front Wing Fins
+            const finGeo = new THREE.BoxGeometry(0.1, 0.4, 0.6);
+            const lFin = new THREE.Mesh(finGeo, matDark); lFin.position.set(-1.1, 0.4, 2.7); group.add(lFin);
+            const rFin = new THREE.Mesh(finGeo, matDark); rFin.position.set(1.1, 0.4, 2.7); group.add(rFin);
 
-            // Wheels
-            const wCyl = new THREE.CylinderGeometry(0.4, 0.4, 0.35, 16);
+            // Rear Wing
+            const rWingGeo = new THREE.BoxGeometry(2.2, 0.1, 0.8);
+            const rWing = new THREE.Mesh(rWingGeo, matBody);
+            rWing.position.set(0, 1.4, -2.2);
+            group.add(rWing);
+            // Wing Supports
+            const supGeo = new THREE.BoxGeometry(0.1, 0.8, 0.4);
+            const lSup = new THREE.Mesh(supGeo, matDark); lSup.position.set(-0.6, 0.9, -2.1); group.add(lSup);
+            const rSup = new THREE.Mesh(supGeo, matDark); rSup.position.set(0.6, 0.9, -2.1); group.add(rSup);
+
+            // Wheels (Detailed)
+            const wGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.5, 24);
             const wMat = new THREE.MeshPhongMaterial({ color: 0x222222 });
-            [[0.9, 0.4, 1.2], [-0.9, 0.4, 1.2], [1.0, 0.4, -1.2], [-1.0, 0.4, -1.2]].forEach(p => {
-                const w = new THREE.Mesh(wCyl, wMat); w.rotation.z = Math.PI / 2; w.position.set(...p); group.add(w);
+            const hubMat = new THREE.MeshPhongMaterial({ color: 0xdddddd }); // Silver rims
+
+            const wheelPositions = [
+                { x: 1.1, y: 0.45, z: 1.8 },  // Front Right
+                { x: -1.1, y: 0.45, z: 1.8 }, // Front Left
+                { x: 1.2, y: 0.45, z: -1.5 }, // Rear Right
+                { x: -1.2, y: 0.45, z: -1.5 } // Rear Left
+            ];
+
+            wheelPositions.forEach(p => {
+                const w = new THREE.Mesh(wGeo, wMat);
+                w.rotation.z = Math.PI / 2;
+                w.position.set(p.x, p.y, p.z);
+
+                // Rim
+                const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.52, 16), hubMat);
+                rim.rotation.z = Math.PI / 2;
+                rim.position.set(p.x, p.y, p.z);
+
+                group.add(w);
+                group.add(rim);
             });
 
+            // Halo / Driver Protection
+            const haloGeo = new THREE.TorusGeometry(0.4, 0.05, 8, 20, Math.PI);
+            const halo = new THREE.Mesh(haloGeo, matDark);
+            halo.position.set(0, 0.9, 0.5);
+            halo.rotation.y = Math.PI / 2;
+            group.add(halo);
+
         } else {
-            // --- MOTORBIKE HELPER ---
+            // --- MOTORBIKE HELPER (Quick Refresh) ---
             const matBody = new THREE.MeshPhongMaterial({ color: color, shininess: 80 });
             const matDark = new THREE.MeshPhongMaterial({ color: 0x111111 });
 
-            // Main Frame (Thin)
-            const frame = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 2.5), matBody);
-            frame.position.y = 0.6;
+            // Main Frame
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 2.2), matBody);
+            frame.position.y = 0.7;
             group.add(frame);
 
-            // Wheels (2 Large Inline)
-            const wGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.2, 16);
+            // Wheels
+            const wGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.25, 24);
             const wMat = new THREE.MeshPhongMaterial({ color: 0x222222 });
 
             const fWheel = new THREE.Mesh(wGeo, wMat);
-            fWheel.rotation.z = Math.PI / 2; fWheel.position.set(0, 0.5, 1.2);
-            group.add(fWheel);
+            fWheel.rotation.z = Math.PI / 2; fWheel.position.set(0, 0.55, 1.3); group.add(fWheel);
 
             const rWheel = new THREE.Mesh(wGeo, wMat);
-            rWheel.rotation.z = Math.PI / 2; rWheel.position.set(0, 0.5, -1.0);
-            group.add(rWheel);
+            rWheel.rotation.z = Math.PI / 2; rWheel.position.set(0, 0.55, -1.1); group.add(rWheel);
 
             // Handlebars
-            const handle = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.1), matDark);
-            handle.position.set(0, 1.1, 0.8);
+            const handle = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.15), matDark);
+            handle.position.set(0, 1.2, 0.9);
             group.add(handle);
         }
 
         // Rider Head (Common)
         const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshPhongMaterial({ color: 0xffeecc }));
-        head.position.set(0, 0.9 + (this.vehicleType === 'bike' ? 0.4 : 0), -0.2); // Higher on bike
+        head.position.set(0, 0.9 + (this.vehicleType === 'bike' ? 0.4 : 0.2), 0);
         group.add(head);
 
-        const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.36, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshPhongMaterial({ color: color }));
+        const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshPhongMaterial({ color: color }));
         helmet.position.copy(head.position);
         helmet.rotation.x = -0.2;
         group.add(helmet);
 
         // Shadow
-        const shad = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 3.0), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 }));
+        const shad = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 3.8), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4 }));
         shad.rotation.x = -Math.PI / 2; shad.position.y = 0.05;
         group.add(shad);
 
@@ -289,15 +336,12 @@ class Kart {
 
         if (this.stunTimer > 0) {
             this.stunTimer--;
-            this.speed = Math.min(this.speed, this.maxSpeed * 0.2); // Cap speed
-            // Optional: Add visual stun effect like spinning
-            this.mesh.rotation.y += 0.1; // Small spin
+            this.speed = Math.min(this.speed, this.maxSpeed * 0.2);
+            this.mesh.rotation.y += 0.1;
         }
 
         if (this.isNetworkGhost) {
-            // Interpolate or just wait for update
-            // We do nothing here, setPositionFromNetwork updates it directly
-            // Optionally: simple smoothing
+            // Network update
         } else if (this.isPlayer) {
             this.handleInput();
         } else if (this.isCPU) {
@@ -306,17 +350,19 @@ class Kart {
 
         if (!this.isNetworkGhost) {
             this.applyPhysics();
+            this.checkBarriers(); // Renamed or updated logic
             this.checkCheckpoints();
         }
         this.updateMesh();
 
+        // Invincibility...
+        // ... (keep rest of update logic if needed, but we are replacing block so strict copy)
         // Invincibility Decay
         if (this.invincibleTimer > 0) {
             this.invincibleTimer--;
-            // Collide with other karts to spin them
             gameState.karts.forEach(k => {
                 if (k !== this && k.mesh.position.distanceTo(this.mesh.position) < 3) {
-                    k.takeDamage(); // Spin them out!
+                    k.takeDamage();
                 }
             });
         }
@@ -327,11 +373,9 @@ class Kart {
             if (this.boostTimer <= 0) this.maxSpeed = this.stats.speed;
         }
 
-        // Stun Decay
+        // Stun Decay (Redundant with top check but ok)
         if (this.stunTimer > 0) {
-            this.stunTimer--;
-            // Keep speed capped 
-            if (this.speed > this.maxSpeed * 0.3) this.speed = this.maxSpeed * 0.3;
+            // Already handled at top
         }
     }
 
@@ -339,105 +383,104 @@ class Kart {
         const k = this.controlKeys;
         if (!k) return;
 
-        const up = keys[k.up] || touchState.up;
-        const down = keys[k.down] || touchState.down;
-        const left = keys[k.left] || touchState.left;
-        const right = keys[k.right] || touchState.right;
-        const use = keys[k.use] || touchState.use;
+        // SMART INPUT: Check both Configured Keys AND Alternatives (Arrows/WASD)
+        let up = keys[k.up] || touchState.up;
+        let down = keys[k.down] || touchState.down;
+        let left = keys[k.left] || touchState.left;
+        let right = keys[k.right] || touchState.right;
+        let use = keys[k.use] || touchState.use;
 
-        if (this.stunTimer <= 0) { // Only allow input if not stunned
+        // Fallback for P1: Allow Arrow Keys effectively if standard layout
+        if (this.id === 0) {
+            up = up || keys['ArrowUp'] || keys['w'] || keys['W'];
+            down = down || keys['ArrowDown'] || keys['s'] || keys['S'];
+            left = left || keys['ArrowLeft'] || keys['a'] || keys['A'];
+            right = right || keys['ArrowRight'] || keys['d'] || keys['D'];
+            use = use || keys['Enter'] || keys[' '];
+        }
+
+        if (this.stunTimer <= 0) {
             if (up) this.speed += this.acceleration;
             else if (down) this.speed -= this.acceleration;
             else this.speed *= this.friction;
 
-            this.handleSteering(left, right);
+            // Allow steering even if slowly moving, or if just trying to start turning from static
+            // But realistically needs some speed to turn 
+            if (Math.abs(this.speed) > 0.05) {
+                const dir = this.speed > 0 ? 1 : -1;
+                if (left) this.angle += this.turnSpeed * dir; // Regular turning
+                if (right) this.angle -= this.turnSpeed * dir;
+            } else if (Math.abs(this.speed) <= 0.05 && (up || down)) {
+                // If trying to accelerate and turn, allow turn slightly
+                if (left) this.angle += this.turnSpeed;
+                if (right) this.angle -= this.turnSpeed;
+            }
+
         } else {
-            this.speed *= 0.9; // Stunned, still slow down
+            this.speed *= 0.9;
         }
 
-        // Item Use
         if (use) this.useItem();
     }
 
+    // handleAI omitted from replacement to save space if mostly unchanged, 
+    // BUT we need it if this is a block replacement.
+    // Actually the user selected lines 198-456 which includes handleAI. 
+    // I must include it or it will be deleted.
+
     handleAI() {
-        // AI Logic: Follow trackCurve
-        // Find nearest point T on curve
-        // Ideally we track T continuously to avoid expensive searches
-        // But for simplicity, we roughly target a point slightly ahead of us on the curve.
-
-        // Simple AI: Move towards point (T + lookahead)
-        // We approximate T based on checkpoint index
-        // T ~ nextCheckpoint / numCheckpoints
-
-        const numCP = 200; // Updated numCP
-        // Target is slightly ahead of current position
-        // Current position approx:
+        const numCP = 200;
         const currentT = ((this.nextCheckpoint - 1) % numCP) / numCP;
-        let targetT = currentT + 0.05; // Look ahead 5% of track
+        let targetT = currentT + 0.05;
         if (targetT > 1) targetT -= 1;
 
         const targetPos = trackCurve.getPointAt(targetT);
-        // Add wiggle/error
         targetPos.x += (Math.sin(Date.now() * 0.001 + this.id) * this.aiError * 10);
         targetPos.z += (Math.cos(Date.now() * 0.0013 + this.id) * this.aiError * 10);
 
-        // Steering to target
         const dx = targetPos.x - this.mesh.position.x;
         const dz = targetPos.z - this.mesh.position.z;
         const targetAngle = Math.atan2(dx, dz);
 
-        // Smoothly rotate towards targetAngle
-        // Find shortest delta angle
         let dAngle = targetAngle - this.angle;
         while (dAngle > Math.PI) dAngle -= Math.PI * 2;
         while (dAngle < -Math.PI) dAngle += Math.PI * 2;
 
-        if (this.stunTimer <= 0) { // Only allow steering if not stunned
+        if (this.stunTimer <= 0) {
             if (dAngle > 0.1) this.angle += this.turnSpeed;
             if (dAngle < -0.1) this.angle -= this.turnSpeed;
 
-            // AI Speed: Base off difficulty but limited by Kart Stats
             const targetSpeed = Math.min(this.cpuStats.speed, this.stats.speed);
             if (this.speed < targetSpeed) this.speed += this.acceleration;
         } else {
-            this.speed *= 0.9; // Stunned, still slow down
+            this.speed *= 0.9;
         }
 
-        // Simple item use
         if (this.items.length > 0 && Math.random() < 0.01) this.useItem();
     }
 
-    handleSteering(left, right) {
-        if (this.speed !== 0) {
-            const dir = this.speed > 0 ? 1 : -1;
-            if (left) this.angle += this.turnSpeed * dir;
-            if (right) this.angle -= this.turnSpeed * dir;
-        }
-    }
+    // handleSteering helper removed, integrated into handleInput
+
 
     applyPhysics() {
-        // Cap Speed (Boost overrides base max)
         const currentMax = this.boostTimer > 0 ? (this.maxSpeed * 1.5) : this.maxSpeed;
         this.speed = Math.max(-0.3, Math.min(this.speed, currentMax));
         if (Math.abs(this.speed) < 0.001) this.speed = 0;
 
-        // Move
         this.mesh.position.x += Math.sin(this.angle) * this.speed;
         this.mesh.position.z += Math.cos(this.angle) * this.speed;
 
-        // Safety / Respawn
         if (this.mesh.position.y < -10) this.respawn();
         this.checkBarriers();
     }
 
     checkBarriers() {
-        // Collision with track bounds (Invisible walls)
-        // Simplified: Check distance to nearest CP
-        // Use existing nextCheckpoint logic
-        const nextIdx = this.nextCheckpoint % 200; // Updated numCP
-        const prevIdx = (this.nextCheckpoint - 1 + 200) % 200; // Updated numCP
+        // IMPROVED: Off-road friction logic instead of hard walls
+        // 1. Find nearest point on track curve
+        // Using current checkpoint approx is fast
+        const nextIdx = this.nextCheckpoint % 200;
+        const prevIdx = (this.nextCheckpoint - 1 + 200) % 200;
 
-        // Use full generated checkpoints array from track setup (needs to be global or passed)
         const p1 = trackCheckpoints[prevIdx];
         const p2 = trackCheckpoints[nextIdx];
 
@@ -445,13 +488,19 @@ class Kart {
 
         const d1 = this.mesh.position.distanceTo(p1);
         const d2 = this.mesh.position.distanceTo(p2);
-        const limit = 15; // Track width half approx
+
+        // Track width limit
+        const limit = 20; // Slightly wider tolerance
 
         if (d1 > limit && d2 > limit) {
-            const target = d1 < d2 ? p1 : p2;
-            const dir = new THREE.Vector3().subVectors(target, this.mesh.position).normalize();
-            this.mesh.position.add(dir.multiplyScalar(0.8));
-            this.speed *= 0.8;
+            // We are off road!
+            // Slow down significantly
+            this.speed *= 0.90;
+
+            // Visual shake?
+            this.mesh.position.y = 2 + (Math.random() * 0.2); // Rumble
+        } else {
+            this.mesh.position.y = 2; // Smooth
         }
     }
 
