@@ -781,27 +781,62 @@ function setupMultiplayer() {
     const modeSelect = document.getElementById('mode-select');
     const mpPanel = document.getElementById('mp-config-panel');
 
-    modeSelect.addEventListener('change', () => {
-        if (modeSelect.value === '4') {
-            mpPanel.style.display = 'block';
-        } else {
-            mpPanel.style.display = 'none';
-        }
-    });
+    if (modeSelect && mpPanel) {
+        modeSelect.addEventListener('change', () => {
+            if (modeSelect.value === '4') {
+                mpPanel.style.display = 'block';
+            } else {
+                mpPanel.style.display = 'none';
+            }
+        });
+    }
 
     // Host
-    document.getElementById('btn-host').addEventListener('click', () => {
-        gameState.netManager.initialize().then(id => {
-            document.getElementById('host-code-display').style.display = 'block';
-            document.getElementById('my-code').innerText = id;
-            document.getElementById('connection-status').innerText = "Waiting for player...";
+    const btnHost = document.getElementById('btn-host');
+    if (btnHost) {
+        btnHost.addEventListener('click', () => {
+            gameState.netManager.initialize().then(id => {
+                document.getElementById('host-code-display').style.display = 'block';
+                document.getElementById('my-code').innerText = id;
+                document.getElementById('connection-status').innerText = "Waiting for player...";
 
-            gameState.netManager.onConnect(() => {
-                document.getElementById('connection-status').innerText = "PLAYER CONNECTED! Starting...";
-                // P1 is host, start game soon?
-                // For now, let P1 press Start manually
+                gameState.netManager.onConnect(() => {
+                    document.getElementById('connection-status').innerText = "PLAYER CONNECTED! Starting...";
+                    // P1 is host, start game soon?
+                    // For now, let P1 press Start manually
+                });
+
+                gameState.netManager.onDataReceived(data => {
+                    if (gameState.remoteKartId !== null) {
+                        const remoteKart = gameState.karts[gameState.remoteKartId];
+                        if (remoteKart) {
+                            remoteKart.setPositionFromNetwork(data.x, data.z, data.a, data.s);
+                        }
+                    }
+                });
             });
+        });
+    }
 
+    // Join
+    const btnJoin = document.getElementById('btn-join');
+    if (btnJoin) {
+        btnJoin.addEventListener('click', () => {
+            document.getElementById('join-input-display').style.display = 'block';
+            gameState.netManager.initialize().then(id => {
+                // we are ready to connect
+            });
+        });
+    }
+    // Connect
+    const btnConnect = document.getElementById('btn-connect');
+    if (btnConnect) {
+        btnConnect.addEventListener('click', () => {
+            const remoteId = document.getElementById('remote-code-input').value;
+            gameState.netManager.connectToPeer(remoteId);
+            gameState.netManager.onConnect(() => {
+                document.getElementById('connection-status').innerText = "CONNECTED TO HOST!";
+            });
             gameState.netManager.onDataReceived(data => {
                 if (gameState.remoteKartId !== null) {
                     const remoteKart = gameState.karts[gameState.remoteKartId];
@@ -811,31 +846,7 @@ function setupMultiplayer() {
                 }
             });
         });
-    });
-
-    // Join
-    document.getElementById('btn-join').addEventListener('click', () => {
-        document.getElementById('join-input-display').style.display = 'block';
-        gameState.netManager.initialize().then(id => {
-            // we are ready to connect
-        });
-    });
-
-    document.getElementById('btn-connect').addEventListener('click', () => {
-        const remoteId = document.getElementById('remote-code-input').value;
-        gameState.netManager.connectToPeer(remoteId);
-        gameState.netManager.onConnect(() => {
-            document.getElementById('connection-status').innerText = "CONNECTED TO HOST!";
-        });
-        gameState.netManager.onDataReceived(data => {
-            if (gameState.remoteKartId !== null) {
-                const remoteKart = gameState.karts[gameState.remoteKartId];
-                if (remoteKart) {
-                    remoteKart.setPositionFromNetwork(data.x, data.z, data.a, data.s);
-                }
-            }
-        });
-    });
+    }
 }
 setupMultiplayer();
 
