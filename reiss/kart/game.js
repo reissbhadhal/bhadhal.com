@@ -1095,6 +1095,40 @@ function checkCoinCollisions() {
     });
 }
 
+function checkCollisions() {
+    // 1. Kart vs Item Boxes
+    gameState.karts.forEach(k => {
+        if (!k.isPlayer && !k.isCPU) return; // Only local entities pick up items for now? Or allow CPUs
+
+        gameState.itemBoxes.forEach((box, idx) => {
+            if (!box.visible) return;
+            if (k.mesh.position.distanceTo(box.position) < 2.5) {
+                // Pickup
+                box.visible = false;
+                setTimeout(() => box.visible = true, 5000); // Respawn after 5s
+
+                // Give item
+                k.pickupItem(box.userData.isDoubleItem);
+
+                // Sound?
+            }
+        });
+
+        // 2. Kart vs Dropped Items (Traps/Shells)
+        gameState.droppedItems.forEach((item, idx) => {
+            if (item.userData.owner === k) return; // Don't hit own items immediately? 
+            // (Shells track targets, but traps are static)
+
+            if (k.mesh.position.distanceTo(item.position) < 2.0) {
+                // Hit!
+                k.takeDamage();
+                scene.remove(item);
+                gameState.droppedItems.splice(idx, 1);
+            }
+        });
+    });
+}
+
 function updateCamera(cam, targetKart) {
     const off = new THREE.Vector3(0, 5, -10).applyAxisAngle(new THREE.Vector3(0, 1, 0), targetKart.angle);
     // targetKart.angle is internal, mesh rotation is y
