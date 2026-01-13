@@ -859,24 +859,32 @@ window.addEventListener('keyup', e => keys[e.key] = false);
 // Touch Logic
 const touchState = { up: false, down: false, left: false, right: false, use: false };
 function setupTouchControls() {
-    const bind = (id, key) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('touchstart', (e) => { e.preventDefault(); touchState[key] = true; });
-        el.addEventListener('touchend', (e) => { e.preventDefault(); touchState[key] = false; });
-        el.addEventListener('mousedown', (e) => { e.preventDefault(); touchState[key] = true; }); // For testing on desktop
-        el.addEventListener('mouseup', (e) => { e.preventDefault(); touchState[key] = false; });
-    };
-    bind('btn-gas', 'up');
-    bind('btn-brake', 'down');
-    bind('btn-left', 'left');
-    bind('btn-right', 'right');
-    bind('btn-item', 'use');
+    try {
+        const bind = (id, key) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); touchState[key] = true; });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); touchState[key] = false; });
+            el.addEventListener('mousedown', (e) => { e.preventDefault(); touchState[key] = true; }); // For testing on desktop
+            el.addEventListener('mouseup', (e) => { e.preventDefault(); touchState[key] = false; });
+        };
+        bind('btn-gas', 'up');
+        bind('btn-brake', 'down');
+        bind('btn-left', 'left');
+        bind('btn-right', 'right');
+        bind('btn-item', 'use');
+    } catch (e) { console.error("Touch Setup Error:", e); }
 }
-setupTouchControls();
 
-// Wait for char selection
-// Listener removed: Initialization handled by index.html
+try {
+    setupMultiplayer();
+} catch (e) { console.error("Multiplayer Setup Error:", e); }
+
+try {
+    setupTouchControls();
+} catch (e) { console.error("Touch Controls Setup Error:", e); }
+
+console.log("Game Engine Module Loaded Successfully");
 
 // EXPOSE TO WINDOW for index.html access
 window.initGame = function () {
