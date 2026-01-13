@@ -957,7 +957,20 @@ window.initGame = function () {
 // --- LOOP ---
 function animate() {
     requestAnimationFrame(animate);
-    if (!gameState.isPlaying) return;
+
+    // If not playing, still render static scene (or menu spin)
+    if (!gameState.isPlaying) {
+        if (gameState.karts.length > 0) {
+            // Preview mode? Just render P1 view
+            renderer.render(scene, camera1);
+        } else {
+            // Default view (Spinning or static)
+            // camera1.position.set(Math.sin(Date.now()*0.001)*50, 20, Math.cos(Date.now()*0.001)*50);
+            // camera1.lookAt(0,0,0);
+            renderer.render(scene, camera1);
+        }
+        return;
+    }
 
     // Update Logic
     gameState.karts.forEach(k => k.update());
