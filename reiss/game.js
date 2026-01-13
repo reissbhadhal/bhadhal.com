@@ -685,7 +685,8 @@ class Game {
         if (this.state === 'GAME_OVER' || this.state === 'PAUSED') return;
 
         const now = Date.now();
-        const dt = (now - this.lastTime) / 1000;
+        // CLAMP: Max dt = 0.05s (approx 20fps). Prevents huge jumps during lag.
+        const dt = Math.min((now - this.lastTime) / 1000, 0.05);
         this.lastTime = now;
 
         // Clear canvas (Transparent to show CSS background)
@@ -1161,7 +1162,7 @@ class Game {
         });
     }
 
-    createExplosion(x, y, color, count = 10) {
+    createExplosion(x, y, color, count = 4) { // Reduced from 10
         for (let i = 0; i < count; i++) {
             this.particles.push(new Particle(x, y, color));
         }
