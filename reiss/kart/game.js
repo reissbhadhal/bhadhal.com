@@ -1073,7 +1073,7 @@ function checkCoinCollisions() {
 function checkCollisions() {
     // 1. Kart vs Item Boxes
     gameState.karts.forEach(k => {
-        if (!k.isPlayer && !k.isCPU) return; // Only local entities pick up items for now? Or allow CPUs
+        if (!k.isPlayer && !k.isCPU) return; // Only local entities pick up items for now?
 
         gameState.itemBoxes.forEach((box, idx) => {
             if (!box.visible) return;
@@ -1084,15 +1084,12 @@ function checkCollisions() {
 
                 // Give item
                 k.pickupItem(box.userData.isDoubleItem);
-
-                // Sound?
             }
         });
 
         // 2. Kart vs Dropped Items (Traps/Shells)
         gameState.droppedItems.forEach((item, idx) => {
-            if (item.userData.owner === k) return; // Don't hit own items immediately? 
-            // (Shells track targets, but traps are static)
+            if (item.userData.owner === k) return; // Don't hit own items immediately
 
             if (k.mesh.position.distanceTo(item.position) < 2.0) {
                 // Hit!
