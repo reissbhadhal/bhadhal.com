@@ -582,6 +582,8 @@ class Game {
         this.enemyDirection = 1; // 1 = right, -1 = left
         this.enemyMoveTimer = 0;
         this.enemyMoveInterval = 50; // frames
+        this.lastTime = Date.now(); // FIX: Initialize lastTime to prevent NaN dt
+
 
         this.highScoreManager = new HighScoreManager();
         this.socialManager = new SocialManager(this);
@@ -686,8 +688,11 @@ class Game {
 
         const now = Date.now();
         // CLAMP: Max dt = 0.05s (approx 20fps). Prevents huge jumps during lag.
-        const dt = Math.min((now - this.lastTime) / 1000, 0.05);
+        let dt = (now - this.lastTime) / 1000;
         this.lastTime = now;
+
+        if (isNaN(dt)) dt = 0.016; // Safety fallback
+        dt = Math.min(dt, 0.05);
 
         // Clear canvas (Transparent to show CSS background)
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
