@@ -918,6 +918,74 @@ function setupTouchControls() {
 
 // EXPOSE TO WINDOW for index.html access
 // EXPOSE TO WINDOW for index.html access
+function spawnCoin() {
+    const geo = new THREE.CylinderGeometry(1, 1, 0.2, 16);
+    const mat = new THREE.MeshPhongMaterial({ color: 0xffff00, shininess: 100 });
+    const coin = new THREE.Mesh(geo, mat);
+
+    // Random Pos on Map
+    const x = (Math.random() - 0.5) * 400;
+    const z = (Math.random() - 0.5) * 400;
+    coin.position.set(x, 2, z);
+    coin.rotation.z = Math.PI / 2;
+    coin.rotation.y = Date.now() * 0.001; // Spin setup
+
+    scene.add(coin);
+    gameState.coins.push(coin);
+}
+
+function checkCoinCollisions() {
+    gameState.coins.forEach((c, idx) => {
+        c.rotation.x += 0.05; // Spin animation
+
+        gameState.karts.forEach(k => {
+            if (k.mesh.position.distanceTo(c.position) < 3) {
+                // Collect
+                scene.remove(c);
+                gameState.coins.splice(idx, 1);
+                console.log("Coin Collected!");
+            }
+        });
+    });
+}
+
+function checkCollisions() {
+    // 1. Kart vs Item Boxes
+    gameState.karts.forEach(k => {
+        if (!k.isPlayer && !k.isCPU) return;
+
+        gameState.itemBoxes.forEach((box) => {
+            if (!box.visible) return;
+            if (k.mesh.position.distanceTo(box.position) < 2.5) {
+                box.visible = false;
+                setTimeout(() => box.visible = true, 5000);
+                k.pickupItem(box.userData.isDoubleItem);
+            }
+        });
+
+        // 2. Kart vs Dropped Items
+        gameState.droppedItems.forEach((item, idx) => {
+            if (item.userData.owner === k) return;
+            if (k.mesh.position.distanceTo(item.position) < 2.0) {
+                k.takeDamage();
+                scene.remove(item);
+                gameState.droppedItems.splice(idx, 1);
+            }
+        });
+    });
+}
+
+function updateCamera(cam, targetKart) {
+    const targetX = targetKart.mesh.position.x - Math.sin(targetKart.angle) * 10;
+    const targetZ = targetKart.mesh.position.z - Math.cos(targetKart.angle) * 10;
+
+    cam.position.x += (targetX - cam.position.x) * 0.1;
+    cam.position.z += (targetZ - cam.position.z) * 0.1;
+    cam.position.y = targetKart.mesh.position.y + 5;
+    cam.lookAt(targetKart.mesh.position);
+}
+
+// EXPOSE TO WINDOW for index.html access
 console.log("Defining window.initGame...");
 window.initGame = function () {
     // Sync Config from HTML
@@ -1073,87 +1141,8 @@ gameState.battleTimer = 14400; // 4 mins
 gameState.coins = [];
 gameState.teamScores = { red: 0, blue: 0, yellow: 0, green: 0 };
 
-function spawnCoin() {
-    const geo = new THREE.CylinderGeometry(1, 1, 0.2, 16);
-    const mat = new THREE.MeshPhongMaterial({ color: 0xffff00, shininess: 100 });
-    const coin = new THREE.Mesh(geo, mat);
+// Moved to top
 
-    // Random Pos on Map
-    const x = (Math.random() - 0.5) * 400;
-    const z = (Math.random() - 0.5) * 400;
-    coin.position.set(x, 2, z);
-    coin.rotation.z = Math.PI / 2;
-    coin.rotation.y = Date.now() * 0.001; // Spin setup
-
-    scene.add(coin);
-    gameState.coins.push(coin);
-}
-
-function checkCoinCollisions() {
-    gameState.coins.forEach((c, idx) => {
-        c.rotation.x += 0.05; // Spin animation
-
-        gameState.karts.forEach(k => {
-            if (k.mesh.position.distanceTo(c.position) < 3) {
-                // Collect
-                scene.remove(c);
-                gameState.coins.splice(idx, 1);
-
-                // Add Score
-                // Need to determine team. For now, just logging or whatever.
-                // In battle mode, simple scoring:
-                // k.team should be set? Defaults to 'red' if p1, 'blue' if p2?
-                // Logic pending.
-                console.log("Coin Collected!");
-            }
-        });
-    });
-}
-
-function checkCollisions() {
-    // 1. Kart vs Item Boxes
-    gameState.karts.forEach(k => {
-        if (!k.isPlayer && !k.isCPU) return; // Only local entities pick up items for now?
-
-        gameState.itemBoxes.forEach((box, idx) => {
-            if (!box.visible) return;
-            if (k.mesh.position.distanceTo(box.position) < 2.5) {
-                // Pickup
-                box.visible = false;
-                setTimeout(() => box.visible = true, 5000); // Respawn after 5s
-
-                // Give item
-                k.pickupItem(box.userData.isDoubleItem);
-            }
-        });
-
-        // 2. Kart vs Dropped Items (Traps/Shells)
-        gameState.droppedItems.forEach((item, idx) => {
-            if (item.userData.owner === k) return; // Don't hit own items immediately
-
-            if (k.mesh.position.distanceTo(item.position) < 2.0) {
-                // Hit!
-                k.takeDamage();
-                scene.remove(item);
-                gameState.droppedItems.splice(idx, 1);
-            }
-        });
-    });
-}
-
-function updateCamera(cam, targetKart) {
-    const off = new THREE.Vector3(0, 5, -10).applyAxisAngle(new THREE.Vector3(0, 1, 0), targetKart.angle);
-    // targetKart.angle is internal, mesh rotation is y
-    // Actually we compute offset based on kart position and angle
-
-    const targetX = targetKart.mesh.position.x - Math.sin(targetKart.angle) * 10;
-    const targetZ = targetKart.mesh.position.z - Math.cos(targetKart.angle) * 10;
-
-    cam.position.x += (targetX - cam.position.x) * 0.1;
-    cam.position.z += (targetZ - cam.position.z) * 0.1;
-    cam.position.y = targetKart.mesh.position.y + 5;
-    cam.lookAt(targetKart.mesh.position);
-}
 
 // Resize
 window.addEventListener('resize', () => {
