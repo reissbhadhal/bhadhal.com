@@ -626,7 +626,7 @@ class Game {
             this.bullets = [];
         }
 
-        this.loop();
+        // Loop is already running from init(), do not call it again!
     }
 
     resetPlayersMultplayer() {
