@@ -144,6 +144,43 @@ const trackPoints = [
 const trackCurve = new THREE.CatmullRomCurve3(trackPoints);
 trackCurve.closed = true;
 const TRACK_LENGTH = trackCurve.getLength();
+// Fix: Define checkpoints for collision logic
+const trackCheckpoints = trackCurve.getSpacedPoints(200);
+
+// --- GEOMETRY CACHE (Fix Lag) ---
+const KartResources = {
+    geometries: {},
+    init: function () {
+        if (this.initialized) return;
+        const g = this.geometries;
+
+        // F1 Car Geometries
+        g.nose = new THREE.BoxGeometry(0.6, 0.4, 1.5);
+        g.body = new THREE.BoxGeometry(0.9, 0.6, 1.8);
+        g.engine = new THREE.BoxGeometry(1.0, 0.7, 1.5);
+        g.intake = new THREE.BoxGeometry(0.5, 0.4, 0.6);
+        g.pod = new THREE.BoxGeometry(0.6, 0.5, 1.8);
+        g.fWing = new THREE.BoxGeometry(2.4, 0.1, 0.6);
+        g.fin = new THREE.BoxGeometry(0.1, 0.4, 0.6);
+        g.rWing = new THREE.BoxGeometry(2.2, 0.1, 0.8);
+        g.sup = new THREE.BoxGeometry(0.1, 0.8, 0.4);
+        g.wheel = new THREE.CylinderGeometry(0.45, 0.45, 0.5, 12); // Low poly
+        g.rim = new THREE.CylinderGeometry(0.2, 0.2, 0.52, 8);
+        g.halo = new THREE.TorusGeometry(0.4, 0.05, 4, 12);
+
+        // Bike Geometries
+        g.bikeFrame = new THREE.BoxGeometry(0.5, 0.7, 2.2);
+        g.bikeWheel = new THREE.CylinderGeometry(0.55, 0.55, 0.25, 12);
+        g.handle = new THREE.BoxGeometry(1.4, 0.1, 0.15);
+
+        // Common
+        g.head = new THREE.SphereGeometry(0.35, 8, 8);
+        g.helmet = new THREE.SphereGeometry(0.38, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+        g.shadow = new THREE.PlaneGeometry(1.8, 3.8);
+
+        this.initialized = true;
+    }
+};
 
 // --- KART CLASS ---
 class Kart {
@@ -162,6 +199,7 @@ class Kart {
         this.isCPU = isCPU;
 
         this.controlKeys = null;
+        KartResources.init(); // Ensure cache is ready
         this.mesh = this.createMesh(this.stats.color);
 
         const startPoint = trackCurve.getPointAt(0);
@@ -197,134 +235,87 @@ class Kart {
 
     createMesh(color) {
         const group = new THREE.Group();
+        const g = KartResources.geometries;
 
         if (this.vehicleType === 'car') {
-            // --- UPDATED REALISTIC F1 CAR ---
             const matBody = new THREE.MeshPhongMaterial({ color: color, shininess: 120, specular: 0x555555 });
             const matDark = new THREE.MeshPhongMaterial({ color: 0x1a1a1a, shininess: 30 });
-            const matCarbon = new THREE.MeshPhongMaterial({ color: 0x111111, shininess: 60 });
+            const hubMat = new THREE.MeshPhongMaterial({ color: 0xdddddd });
 
-            // 1. Main Body (Nose to Tail)
-            // Slim nose
-            const noseGeo = new THREE.BoxGeometry(0.6, 0.4, 1.5);
-            const nose = new THREE.Mesh(noseGeo, matBody);
-            nose.position.set(0, 0.4, 2.0); // Forward
-            group.add(nose);
+            // 1. Body Parts (Shared Geometry)
+            const addPart = (geo, mat, x, y, z) => {
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(x, y, z);
+                group.add(mesh);
+            };
 
-            // Cockpit / Center Body
-            const bodyGeo = new THREE.BoxGeometry(0.9, 0.6, 1.8);
-            const body = new THREE.Mesh(bodyGeo, matBody);
-            body.position.set(0, 0.6, 0.5);
-            group.add(body);
+            addPart(g.nose, matBody, 0, 0.4, 2.0);
+            addPart(g.body, matBody, 0, 0.6, 0.5);
+            addPart(g.engine, matBody, 0, 0.7, -1.0);
+            addPart(g.intake, matDark, 0, 1.1, -0.2);
+            addPart(g.pod, matBody, -0.9, 0.4, 0);
+            addPart(g.pod, matBody, 0.9, 0.4, 0);
+            addPart(g.fWing, matBody, 0, 0.2, 2.7);
+            addPart(g.fin, matDark, -1.1, 0.4, 2.7);
+            addPart(g.fin, matDark, 1.1, 0.4, 2.7);
+            addPart(g.rWing, matBody, 0, 1.4, -2.2);
+            addPart(g.sup, matDark, -0.6, 0.9, -2.1);
+            addPart(g.sup, matDark, 0.6, 0.9, -2.1);
 
-            // Engine Cover (Rear)
-            const engineGeo = new THREE.BoxGeometry(1.0, 0.7, 1.5);
-            const engine = new THREE.Mesh(engineGeo, matBody);
-            engine.position.set(0, 0.7, -1.0);
-            group.add(engine);
-
-            // Air Intake (Top)
-            const intakeGeo = new THREE.BoxGeometry(0.5, 0.4, 0.6);
-            const intake = new THREE.Mesh(intakeGeo, matDark);
-            intake.position.set(0, 1.1, -0.2);
-            group.add(intake);
-
-            // Side Pods (Aerodynamics)
-            const podGeo = new THREE.BoxGeometry(0.6, 0.5, 1.8);
-            const lPod = new THREE.Mesh(podGeo, matBody); lPod.position.set(-0.9, 0.4, 0); group.add(lPod);
-            const rPod = new THREE.Mesh(podGeo, matBody); rPod.position.set(0.9, 0.4, 0); group.add(rPod);
-
-            // Front Wing
-            const fWingGeo = new THREE.BoxGeometry(2.4, 0.1, 0.6);
-            const fWing = new THREE.Mesh(fWingGeo, matBody);
-            fWing.position.set(0, 0.2, 2.7);
-            group.add(fWing);
-            // Front Wing Fins
-            const finGeo = new THREE.BoxGeometry(0.1, 0.4, 0.6);
-            const lFin = new THREE.Mesh(finGeo, matDark); lFin.position.set(-1.1, 0.4, 2.7); group.add(lFin);
-            const rFin = new THREE.Mesh(finGeo, matDark); rFin.position.set(1.1, 0.4, 2.7); group.add(rFin);
-
-            // Rear Wing
-            const rWingGeo = new THREE.BoxGeometry(2.2, 0.1, 0.8);
-            const rWing = new THREE.Mesh(rWingGeo, matBody);
-            rWing.position.set(0, 1.4, -2.2);
-            group.add(rWing);
-            // Wing Supports
-            const supGeo = new THREE.BoxGeometry(0.1, 0.8, 0.4);
-            const lSup = new THREE.Mesh(supGeo, matDark); lSup.position.set(-0.6, 0.9, -2.1); group.add(lSup);
-            const rSup = new THREE.Mesh(supGeo, matDark); rSup.position.set(0.6, 0.9, -2.1); group.add(rSup);
-
-            // Wheels (Detailed)
-            const wGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.5, 24);
+            // Wheels
             const wMat = new THREE.MeshPhongMaterial({ color: 0x222222 });
-            const hubMat = new THREE.MeshPhongMaterial({ color: 0xdddddd }); // Silver rims
-
             const wheelPositions = [
-                { x: 1.1, y: 0.45, z: 1.8 },  // Front Right
-                { x: -1.1, y: 0.45, z: 1.8 }, // Front Left
-                { x: 1.2, y: 0.45, z: -1.5 }, // Rear Right
-                { x: -1.2, y: 0.45, z: -1.5 } // Rear Left
+                { x: 1.1, y: 0.45, z: 1.8 }, { x: -1.1, y: 0.45, z: 1.8 },
+                { x: 1.2, y: 0.45, z: -1.5 }, { x: -1.2, y: 0.45, z: -1.5 }
             ];
 
             wheelPositions.forEach(p => {
-                const w = new THREE.Mesh(wGeo, wMat);
+                const w = new THREE.Mesh(g.wheel, wMat);
                 w.rotation.z = Math.PI / 2;
                 w.position.set(p.x, p.y, p.z);
-
-                // Rim
-                const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.52, 16), hubMat);
+                const rim = new THREE.Mesh(g.rim, hubMat);
                 rim.rotation.z = Math.PI / 2;
                 rim.position.set(p.x, p.y, p.z);
-
-                group.add(w);
-                group.add(rim);
+                group.add(w); group.add(rim);
             });
 
-            // Halo / Driver Protection
-            const haloGeo = new THREE.TorusGeometry(0.4, 0.05, 8, 20, Math.PI);
-            const halo = new THREE.Mesh(haloGeo, matDark);
+            // Halo
+            const halo = new THREE.Mesh(g.halo, matDark);
             halo.position.set(0, 0.9, 0.5);
             halo.rotation.y = Math.PI / 2;
             group.add(halo);
 
         } else {
-            // --- MOTORBIKE HELPER (Quick Refresh) ---
+            // Motorbike
             const matBody = new THREE.MeshPhongMaterial({ color: color, shininess: 80 });
             const matDark = new THREE.MeshPhongMaterial({ color: 0x111111 });
-
-            // Main Frame
-            const frame = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 2.2), matBody);
-            frame.position.y = 0.7;
-            group.add(frame);
-
-            // Wheels
-            const wGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.25, 24);
             const wMat = new THREE.MeshPhongMaterial({ color: 0x222222 });
 
-            const fWheel = new THREE.Mesh(wGeo, wMat);
+            const frame = new THREE.Mesh(g.bikeFrame, matBody);
+            frame.position.y = 0.7; group.add(frame);
+
+            const fWheel = new THREE.Mesh(g.bikeWheel, wMat);
             fWheel.rotation.z = Math.PI / 2; fWheel.position.set(0, 0.55, 1.3); group.add(fWheel);
 
-            const rWheel = new THREE.Mesh(wGeo, wMat);
+            const rWheel = new THREE.Mesh(g.bikeWheel, wMat);
             rWheel.rotation.z = Math.PI / 2; rWheel.position.set(0, 0.55, -1.1); group.add(rWheel);
 
-            // Handlebars
-            const handle = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.15), matDark);
-            handle.position.set(0, 1.2, 0.9);
-            group.add(handle);
+            const handle = new THREE.Mesh(g.handle, matDark);
+            handle.position.set(0, 1.2, 0.9); group.add(handle);
         }
 
-        // Rider Head (Common)
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), new THREE.MeshPhongMaterial({ color: 0xffeecc }));
+        // Driver
+        const head = new THREE.Mesh(g.head, new THREE.MeshPhongMaterial({ color: 0xffeecc }));
         head.position.set(0, 0.9 + (this.vehicleType === 'bike' ? 0.4 : 0.2), 0);
         group.add(head);
 
-        const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshPhongMaterial({ color: color }));
+        const helmet = new THREE.Mesh(g.helmet, new THREE.MeshPhongMaterial({ color: color }));
         helmet.position.copy(head.position);
         helmet.rotation.x = -0.2;
         group.add(helmet);
 
         // Shadow
-        const shad = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 3.8), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4 }));
+        const shad = new THREE.Mesh(g.shadow, new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4 }));
         shad.rotation.x = -Math.PI / 2; shad.position.y = 0.05;
         group.add(shad);
 
@@ -644,7 +635,7 @@ class Kart {
 }
 
 // --- GLOBAL HELPERS & SETUP ---
-let trackCheckpoints = [];
+// trackCheckpoints is defined at top of file
 
 function setupTrackLogic() {
     const mapId = CONFIG.mapId || 'circuit';
