@@ -11,6 +11,7 @@ class NetworkManager {
         // Sync variables
         this.lastSyncTime = 0;
         this.syncInterval = 100; // ms (10 updates per second)
+        this.isSyncing = false; // Prevent overlapping requests
     }
 
     // --- LOBBY SYSTEM ---
@@ -90,17 +91,26 @@ class NetworkManager {
 
     // --- GAME SYNC ---
 
-    update(dt) {
+    async update(dt) {
         if (this.game.state !== 'PLAYING') return;
 
         const now = Date.now();
         if (now - this.lastSyncTime < this.syncInterval) return;
-        this.lastSyncTime = now;
+        if (this.isSyncing) return; // Wait for previous request to finish
 
-        if (this.role === 'HOST') {
-            this.sendHostState();
-        } else if (this.role === 'GUEST') {
-            this.sendGuestInput();
+        this.lastSyncTime = now;
+        this.isSyncing = true;
+
+        try {
+            if (this.role === 'HOST') {
+                await this.sendHostState();
+            } else if (this.role === 'GUEST') {
+                await this.sendGuestInput();
+            }
+        } catch (e) {
+            console.error("Network Sync Error:", e);
+        } finally {
+            this.isSyncing = false;
         }
     }
 
