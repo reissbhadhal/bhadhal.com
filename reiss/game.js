@@ -555,6 +555,13 @@ class Player {
 
 class Game {
     constructor() {
+        // SINGLETON ENFORCEMENT
+        if (window.currentSpaceInvaders) {
+            console.warn("Stopping previous Game instance...");
+            window.currentSpaceInvaders.stop();
+        }
+        window.currentSpaceInvaders = this;
+
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.canvas.width = CANVAS_WIDTH;
@@ -604,6 +611,16 @@ class Game {
 
         // Start the game loop
         this.loop();
+    }
+
+    stop() {
+        if (this.loopId) {
+            cancelAnimationFrame(this.loopId);
+            this.loopId = null;
+        }
+        // Clear listeners could be added here if we stored bound references
+        this.state = 'STOPPED';
+        console.log("Game Instance Stopped");
     }
 
     // MULTIPLAYER METHODS
@@ -1199,7 +1216,10 @@ class Game {
     loop() {
         this.update();
         this.draw();
-        requestAnimationFrame(this.loop);
+        this.draw();
+        if (this.state !== 'STOPPED') {
+            this.loopId = requestAnimationFrame(this.loop);
+        }
     }
 }
 
