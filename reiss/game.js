@@ -264,11 +264,13 @@ class Enemy {
             [3, 4, 6, 7]
         ];
 
+        ctx.beginPath(); // OPTIMIZATION: Batch all pixels into one path
         shape.forEach((row, rowIndex) => {
             row.forEach(colIndex => {
-                ctx.fillRect(this.x + colIndex * pSize, this.y + rowIndex * pSize, pSize, pSize);
+                ctx.rect(this.x + colIndex * pSize, this.y + rowIndex * pSize, pSize, pSize);
             });
         });
+        ctx.fill(); // Single draw call per enemy (vs 60)
 
         // ctx.shadowBlur = 5; // Optimized out
         // ctx.shadowColor = this.color;
