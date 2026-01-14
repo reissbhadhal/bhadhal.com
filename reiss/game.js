@@ -724,35 +724,37 @@ class Game {
         });
         this.players.forEach(p => p.update(dt));
 
-        // Bullets
-        this.bullets.forEach((b, i) => {
+        // Bullets (Filter out-of-bounds)
+        this.bullets = this.bullets.filter(b => {
             b.update(dt);
+            // Check bounds
             if (b.y < 0 || b.y > CANVAS_HEIGHT) {
-                // If bullet goes off screen (and is player's), count as miss
                 if (!b.isEnemy && b.owner) {
                     b.owner.misses++;
-                    if (b.y < 0) {
-                        this.floatingTexts.push(new FloatingText(b.x, 30, "MISS", "#ff0000"));
-                    }
+                    if (b.y < 0) this.floatingTexts.push(new FloatingText(b.x, 30, "MISS", "#ff0000"));
                 }
-                this.bullets.splice(i, 1);
+                return false; // Remove
             }
+            return true; // Keep
         });
 
         // Enemies
         let hitEdge = false;
         this.enemies.forEach(e => {
-            if (e instanceof Boss) e.update(dt);
-            else e.update(this.enemyDirection, dt);
+            if (e instanceof Boss) {
+                e.update(dt);
+                // Boss handles its own bounds
+            } else {
+                e.update(this.enemyDirection, dt);
 
-            // Fix: Only trigger edge hit if moving TOWARDS the edge
-            // And clamp position to prevent getting stuck
-            if (e.x <= 0 && this.enemyDirection < 0) {
-                hitEdge = true;
-                e.x = 0;
-            } else if (e.x + e.width >= CANVAS_WIDTH && this.enemyDirection > 0) {
-                hitEdge = true;
-                e.x = CANVAS_WIDTH - e.width;
+                // Only regular enemies trigger swarm edge logic
+                if (e.x <= 0 && this.enemyDirection < 0) {
+                    hitEdge = true;
+                    e.x = 0;
+                } else if (e.x + e.width >= CANVAS_WIDTH && this.enemyDirection > 0) {
+                    hitEdge = true;
+                    e.x = CANVAS_WIDTH - e.width;
+                }
             }
         });
 
@@ -770,15 +772,15 @@ class Game {
         }
 
         // Particles
-        this.particles.forEach((p, i) => {
+        this.particles = this.particles.filter(p => {
             p.update(dt);
-            if (p.life <= 0) this.particles.splice(i, 1);
+            return p.life > 0;
         });
 
         // Floating Texts
-        this.floatingTexts.forEach((t, i) => {
+        this.floatingTexts = this.floatingTexts.filter(t => {
             t.update(dt);
-            if (t.life <= 0) this.floatingTexts.splice(i, 1);
+            return t.life > 0;
         });
 
         this.checkCollisions();
@@ -987,7 +989,10 @@ class Game {
 
     checkCollisions() {
         // 1. Bullets hitting Enemies or Players
-        this.bullets.forEach((b, bIndex) => {
+        // Iterate BACKWARDS to safely remove bullets/enemies
+        for (let bIndex = this.bullets.length - 1; bIndex >= 0; bIndex--) {
+            const b = this.bullets[bIndex];
+
             if (b.isEnemy) {
                 // Enemy Bullet hitting Player
                 this.players.forEach(p => {
@@ -1000,17 +1005,18 @@ class Game {
                 });
             } else {
                 // Player Bullet hitting Enemy
-                this.enemies.forEach((e, eIndex) => {
+                for (let eIndex = this.enemies.length - 1; eIndex >= 0; eIndex--) {
+                    const e = this.enemies[eIndex];
                     if (this.checkRectCollision(b, e)) {
                         this.createExplosion(e.x + e.width / 2, e.y + e.height / 2, e.color || '#39ff14');
-                        this.bullets.splice(bIndex, 1);
+                        this.bullets.splice(bIndex, 1); // Bullet gone
 
                         // Boss Handling
                         if (e instanceof Boss) {
                             e.hp -= 10;
                             this.floatingTexts.push(new FloatingText(e.x + e.width / 2, e.y, "-10", "#fff"));
                             if (e.hp <= 0) {
-                                this.enemies.splice(eIndex, 1);
+                                this.enemies.splice(eIndex, 1); // Enemy gone
                                 this.createExplosion(e.x + e.width / 2, e.y + e.height / 2, e.color, 100);
                                 if (b.owner) b.owner.score += 5000;
                             }
@@ -1033,10 +1039,12 @@ class Game {
                                 this.createExplosion(revived.x + revived.width / 2, revived.y + revived.height / 2, revived.color, 30);
                             }
                         }
+
+                        break; // Bullet hit something, stop checking enemies for this bullet
                     }
-                });
+                }
             }
-        });
+        }
 
         // 2. Enemies touching Players (Kamikaze)
         this.enemies.forEach(e => {
