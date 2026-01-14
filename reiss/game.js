@@ -1114,26 +1114,37 @@ class Game {
     }
 
     updateHUD() {
+        // Optimization: Only update DOM if values change
+        const currentTime = Math.ceil(this.gameTime);
+        if (this.lastRenderedTime !== currentTime) {
+            if (this.timerElement) this.timerElement.innerText = currentTime;
+            this.lastRenderedTime = currentTime;
+        }
+
         let scoreText = `LVL ${this.level}`;
+        let livesText = "";
+        let pScores = "  |  ";
 
         if (this.players.length > 0) {
-            let livesText = "";
-            let pScores = "  |  ";
-
             this.players.forEach(p => {
                 const livesDisplay = p.isDead ? "DEAD" : p.lives;
                 livesText += `P${p.id}: ${livesDisplay}  `;
                 pScores += `P${p.id}: ${p.score}  `;
             });
-            this.livesElement.innerText = livesText;
-            this.scoreElement.innerText = scoreText + pScores;
+            scoreText += pScores;
         } else {
-            this.livesElement.innerText = "DEAD";
-            this.scoreElement.innerText = scoreText + "  |  GAME OVER";
+            livesText = "DEAD";
+            scoreText += "  |  GAME OVER";
         }
 
-        if (this.timerElement) {
-            this.timerElement.innerText = Math.ceil(this.gameTime);
+        if (this.lastRenderedScore !== scoreText) {
+            this.scoreElement.innerText = scoreText;
+            this.lastRenderedScore = scoreText;
+        }
+
+        if (this.lastRenderedLives !== livesText) {
+            this.livesElement.innerText = livesText;
+            this.lastRenderedLives = livesText;
         }
     }
 
