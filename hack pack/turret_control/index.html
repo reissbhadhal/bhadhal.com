@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turret Commander</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ecf0f1;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        h1 { margin-bottom: 20px; }
+
+        .container {
+            background-color: #2c3e50;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        button {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+            margin: 5px;
+            font-weight: bold;
+        }
+
+        button:active { transform: scale(0.95); }
+        button:hover { background-color: #c0392b; }
+        
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        #connectBtn {
+            background-color: #3498db;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        #connectBtn:hover { background-color: #2980b9; }
+
+        .d-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .d-pad button {
+            width: 60px;
+            height: 60px;
+            padding: 0;
+            font-size: 24px;
+        }
+        
+        .spacer { visibility: hidden; }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .status {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #bdc3c7;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Turret Command</h1>
+        
+        <button id="connectBtn">🔌 Connect to Turret</button>
+
+        <div class="d-pad">
+            <div class="spacer"></div>
+            <button id="btnUp" disabled>⬆️</button>
+            <div class="spacer"></div>
+            
+            <button id="btnLeft" disabled>⬅️</button>
+            <button id="btnFire" disabled style="background-color: #f1c40f; color: #000;">🔥</button>
+            <button id="btnRight" disabled>➡️</button>
+            
+            <div class="spacer"></div>
+            <button id="btnDown" disabled>⬇️</button>
+            <div class="spacer"></div>
+        </div>
+
+        <div class="actions">
+            <button id="btnFlywheel" disabled>⚙️ Spin Flywheel</button>
+        </div>
+
+        <div class="status" id="statusText">Disconnected</div>
+    </div>
+
+    <script>
+        let port;
+        let writer;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const statusText = document.getElementById('statusText');
+        const buttons = document.querySelectorAll('button:not(#connectBtn)');
+
+        async function connect() {
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                
+                const textEncoder = new TextEncoderStream();
+                const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+                writer = textEncoder.writable.getWriter();
+
+                statusText.innerText = "Connected!";
+                statusText.style.color = "#2ecc71";
+                connectBtn.style.display = 'none';
+                
+                buttons.forEach(btn => btn.disabled = false);
+
+            } catch (err) {
+                console.error(err);
+                statusText.innerText = "Error: " + err.message;
+            }
+        }
+
+        async function sendCommand(cmd) {
+            if (writer) {
+                try {
+                    await writer.write(cmd);
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        }
+
+        connectBtn.addEventListener('click', connect);
+
+        // Button Listeners
+        document.getElementById('btnUp').onclick = () => sendCommand('U');
+        document.getElementById('btnDown').onclick = () => sendCommand('D');
+        document.getElementById('btnLeft').onclick = () => sendCommand('L');
+        document.getElementById('btnRight').onclick = () => sendCommand('R');
+        document.getElementById('btnFire').onclick = () => sendCommand('S');
+        document.getElementById('btnFlywheel').onclick = () => sendCommand('F');
+
+        // Keyboard Listeners
+        document.addEventListener('keydown', (e) => {
+            if (connectBtn.style.display !== 'none') return;
+            
+            const key = e.key.toLowerCase();
+            if (key === 'w' || key === 'arrowup') sendCommand('U');
+            if (key === 's' || key === 'arrowdown') sendCommand('D');
+            if (key === 'a' || key === 'arrowleft') sendCommand('L');
+            if (key === 'd' || key === 'arrowright') sendCommand('R');
+            if (key === ' ' || key === 'enter') sendCommand('S');
+            if (key === 'f') sendCommand('F');
+        });
+    </script>
+</body>
+</html>

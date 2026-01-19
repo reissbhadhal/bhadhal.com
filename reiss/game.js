@@ -247,11 +247,20 @@ class Enemy {
         this.game.bullets.push(new Bullet(this.x + this.width / 2, this.y + this.height, 1, true, null));
     }
 
-    draw(ctx) {
-        ctx.fillStyle = this.color;
+    static getCachedSprite(color, width, height) {
+        if (!Enemy.cache) Enemy.cache = {};
+        const key = `${color}-${width}-${height}`;
 
-        // Pixel art "invader" using 5x5 grid approx
-        const pSize = this.width / 11; // 11 pixels wide
+        if (Enemy.cache[key]) return Enemy.cache[key];
+
+        // Create new offscreen canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = color;
+        const pSize = width / 11; // 11 pixels wide
 
         const shape = [
             [2, 8],
@@ -264,18 +273,22 @@ class Enemy {
             [3, 4, 6, 7]
         ];
 
-        ctx.beginPath(); // OPTIMIZATION: Batch all pixels into one path
+        ctx.beginPath();
         shape.forEach((row, rowIndex) => {
             row.forEach(colIndex => {
-                ctx.rect(this.x + colIndex * pSize, this.y + rowIndex * pSize, pSize, pSize);
+                ctx.rect(colIndex * pSize, rowIndex * pSize, pSize, pSize);
             });
         });
-        ctx.fill(); // Single draw call per enemy (vs 60)
+        ctx.fill();
 
-        // ctx.shadowBlur = 5; // Optimized out
-        // ctx.shadowColor = this.color;
-        // ctx.fill(); // Context fill doesn't help rects but shadow works
-        // ctx.shadowBlur = 0;
+        Enemy.cache[key] = canvas;
+        return canvas;
+    }
+
+    draw(ctx) {
+        // Use cached sprite for massive performance boost
+        const sprite = Enemy.getCachedSprite(this.color, this.width, this.height);
+        ctx.drawImage(sprite, this.x, this.y);
     }
 }
 
@@ -331,7 +344,7 @@ class Boss extends Enemy {
         const bottomY = this.y + this.height;
 
         this.game.bullets.push(new Bullet(centerX, bottomY, 1, true, null));
-        this.game.bullets.push(new Bullet(centerX - 20, bottomY, 1, true, null)); // Angled left? (Simplified to straight for now)
+        this.game.bullets.push(new Bullet(centerX - 20, bottomY, 1, true, null));
         this.game.bullets.push(new Bullet(centerX + 20, bottomY, 1, true, null));
     }
 
@@ -659,14 +672,61 @@ class Game {
     syncFromHost(data) {
         // Update Game State from Host Data
         if (data.enemies) {
-            this.enemies = data.enemies.map(e => {
-                const enemy = new Enemy(this, e.x, e.y);
-                return enemy;
-            });
+            // OPTIMIZATION: Reuse existing enemy objects to reduce GC
+            if (this.enemies.length !== data.enemies.length) {
+                // Count mismatch? Re-sync fully (or handle additions/removals)
+                // For simplicity/robustness, if counts differ, we might need to recreate or adjust.
+                // But often in this game, enemies just die.
+                // Let's try to reuse as many as possible.
+
+                // If we have MORE enemies than data, truncate
+                if (this.enemies.length > data.enemies.length) {
+                    this.enemies.length = data.enemies.length;
+                }
+
+                // If we have FEWER, add new ones
+                while (this.enemies.length < data.enemies.length) {
+                    this.enemies.push(new Enemy(this, 0, 0));
+                }
+            }
+
+            // Now update positions
+            for (let i = 0; i < data.enemies.length; i++) {
+                const eData = data.enemies[i];
+                // Check if it should be a boss? (Simplification: assuming mostly regular enemies for now or basic reuse)
+                // If type mismatch were an issue, we'd need more data. 
+                // However, the current code just did `new Enemy`, losing Boss status if any. 
+                // So this is actually SAFER for regular enemies, but for Boss scenarios we might need `isBoss` flag in data.
+                // For now, adhere to previous behavior but optimized:
+                this.enemies[i].x = eData.x;
+                this.enemies[i].y = eData.y;
+            }
         }
+
         if (data.bullets) {
-            this.bullets = data.bullets.map(b => new Bullet(b.x, b.y, b.isEnemy ? 1 : -1, b.isEnemy, null));
+            // Bullet sync optimization
+            if (this.bullets.length !== data.bullets.length) {
+                if (this.bullets.length > data.bullets.length) {
+                    this.bullets.length = data.bullets.length;
+                }
+                while (this.bullets.length < data.bullets.length) {
+                    // Placeholder, updated immediately below
+                    this.bullets.push(new Bullet(0, 0, 0, false, null));
+                }
+            }
+
+            for (let i = 0; i < data.bullets.length; i++) {
+                const bData = data.bullets[i];
+                const b = this.bullets[i];
+                b.x = bData.x;
+                b.y = bData.y;
+                b.isEnemy = bData.isEnemy;
+                // Update color/direction properties if they changed (stateless update)
+                b.direction = bData.isEnemy ? 1 : -1;
+                b.color = bData.isEnemy ? '#ff00ff' : '#00ffff';
+            }
         }
+
         if (data.p1) {
             const p1 = this.players[0];
             p1.x = data.p1.x;

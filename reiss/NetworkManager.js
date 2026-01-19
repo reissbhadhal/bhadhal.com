@@ -10,7 +10,7 @@ class NetworkManager {
 
         // Sync variables
         this.lastSyncTime = 0;
-        this.syncInterval = 100; // ms (10 updates per second)
+        this.syncInterval = 200; // ms (5 updates per second) - Optimized from 100ms
         this.isSyncing = false; // Prevent overlapping requests
     }
 
