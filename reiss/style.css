@@ -441,4 +441,34 @@ body {
         font-size: 1rem;
         flex-direction: column;
     }
+
+    /* Make leaderboard visible and smaller on mobile */
+    .high-scores {
+        margin-top: 15px;
+        width: 90%;
+        max-width: 300px;
+        padding: 10px;
+        max-height: 150px;
+        overflow-y: auto;
+    }
+
+    .high-scores h3 {
+        font-size: 1rem;
+        margin-bottom: 10px;
+    }
+
+    #scoreList li {
+        font-size: 0.85rem;
+        margin-bottom: 5px;
+    }
+
+    .overlay {
+        padding: 20px;
+        overflow-y: auto;
+    }
+
+    .overlay h1 {
+        font-size: 2rem;
+        margin-bottom: 15px;
+    }
 }
