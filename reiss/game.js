@@ -391,7 +391,7 @@ class Player {
         this.invulnerable = 0;
         this.isDead = false;
         this.shootCooldown = 0; // Cooldown timer in ms
-        this.shootCooldownTime = 500; // 500ms between shots (2 shots per second max)
+        this.shootCooldownTime = 125; // 125ms between shots (8 shots per second max)
 
         if (this.game.numPlayers === 1) {
             this.x = CANVAS_WIDTH / 2 - this.width / 2;
@@ -1062,7 +1062,7 @@ class Game {
         } else {
             // Normal Spawn
             const rows = 5;
-            const cols = 10;
+            const cols = 15;
             const startX = 50;
             const startY = 50;
             const padding = 50;
