@@ -49,29 +49,96 @@ class NetworkManager {
     }
 
     async joinLobby(hostName) {
-        if (!this.db) return;
+        if (!this.db) {
+            console.error("Database not available");
+            alert("Cannot connect to game server. Please try again.");
+            return;
+        }
 
         this.lobbyId = hostName;
         this.role = 'GUEST';
         this.opponentName = hostName;
 
-        try {
-            const lobbyRef = this.db.collection('lobbies').doc(this.lobbyId);
-            const doc = await lobbyRef.get();
+        // Show joining message
+        this.game.startScreen.classList.add('hidden');
+        this.game.loginScreen.classList.add('hidden');
+        this.showJoiningScreen(hostName);
 
-            if (doc.exists && doc.data().status === 'WAITING') {
-                // Signal Ready
-                await lobbyRef.update({
-                    status: 'CONNECTED',
-                    guestReadyAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+        // Retry logic - wait for lobby to be created (up to 10 seconds)
+        let attempts = 0;
+        const maxAttempts = 20;
+        const retryInterval = 500; // ms
 
-                this.startGameAsGuest();
-            } else {
-                console.error("Lobby not available");
+        const tryJoin = async () => {
+            try {
+                const lobbyRef = this.db.collection('lobbies').doc(this.lobbyId);
+                const doc = await lobbyRef.get();
+
+                if (doc.exists && doc.data().status === 'WAITING') {
+                    // Signal Ready
+                    await lobbyRef.update({
+                        status: 'CONNECTED',
+                        guestName: this.game.currentPlayerName,
+                        guestReadyAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    this.hideJoiningScreen();
+                    this.startGameAsGuest();
+                    return true;
+                } else if (doc.exists && doc.data().status === 'CONNECTED') {
+                    // Game already started or another player joined
+                    this.hideJoiningScreen();
+                    alert("This game session is already in progress.");
+                    this.game.startScreen.classList.remove('hidden');
+                    return true;
+                } else {
+                    // Lobby doesn't exist yet, retry
+                    attempts++;
+                    if (attempts < maxAttempts) {
+                        console.log(`Waiting for lobby... attempt ${attempts}/${maxAttempts}`);
+                        setTimeout(tryJoin, retryInterval);
+                        return false;
+                    } else {
+                        // Give up
+                        this.hideJoiningScreen();
+                        alert("Could not find the game lobby. The host may have cancelled or the link expired.");
+                        this.game.startScreen.classList.remove('hidden');
+                        return true;
+                    }
+                }
+            } catch (e) {
+                console.error("Error joining lobby:", e);
+                this.hideJoiningScreen();
+                alert("Error joining game: " + e.message);
+                this.game.startScreen.classList.remove('hidden');
+                return true;
             }
-        } catch (e) {
-            console.error("Error joining lobby:", e);
+        };
+
+        tryJoin();
+    }
+
+    showJoiningScreen(hostName) {
+        let joiningOverlay = document.getElementById('joiningOverlay');
+        if (!joiningOverlay) {
+            joiningOverlay = document.createElement('div');
+            joiningOverlay.id = 'joiningOverlay';
+            joiningOverlay.className = 'overlay';
+            joiningOverlay.innerHTML = `
+                <h1 style="font-size: 2rem; margin-bottom: 20px;">🎮 JOINING GAME</h1>
+                <p style="color: #39ff14; font-size: 1.5rem;" id="joiningHost"></p>
+                <p style="margin-top: 20px; animation: blinker 1s linear infinite;">Connecting...</p>
+            `;
+            document.querySelector('.game-container').appendChild(joiningOverlay);
+        }
+        document.getElementById('joiningHost').innerText = `Host: ${hostName}`;
+        joiningOverlay.classList.remove('hidden');
+    }
+
+    hideJoiningScreen() {
+        const joiningOverlay = document.getElementById('joiningOverlay');
+        if (joiningOverlay) {
+            joiningOverlay.classList.add('hidden');
         }
     }
 

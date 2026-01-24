@@ -650,12 +650,22 @@ class Game {
         this.networkManager.role = role;
         this.networkManager.listenForUpdates();
 
-        // UI Prep
+        // UI Prep - hide all overlays
         this.startScreen.classList.add('hidden');
         this.socialManager.toggle(false); // Close social
 
+        // Hide waiting overlay (for host)
+        const waitingOverlay = document.getElementById('waitingOverlay');
+        if (waitingOverlay) waitingOverlay.classList.add('hidden');
+
+        // Hide joining overlay (for guest)
+        const joiningOverlay = document.getElementById('joiningOverlay');
+        if (joiningOverlay) joiningOverlay.classList.add('hidden');
+
         // Reset Game
         this.level = 1;
+        this.gameTime = 60;
+        this.lastTime = Date.now();
         this.resetPlayersMultplayer();
 
         if (role === 'HOST') {
@@ -665,6 +675,8 @@ class Game {
             this.enemies = [];
             this.bullets = [];
         }
+
+        this.updateHUD();
 
         // Loop is already running from init(), do not call it again!
     }
