@@ -390,6 +390,8 @@ class Player {
         this.misses = 0;
         this.invulnerable = 0;
         this.isDead = false;
+        this.shootCooldown = 0; // Cooldown timer in ms
+        this.shootCooldownTime = 250; // 250ms between shots (4 shots per second max)
 
         if (this.game.numPlayers === 1) {
             this.x = CANVAS_WIDTH / 2 - this.width / 2;
@@ -489,6 +491,11 @@ class Player {
     }
 
     shoot() {
+        // Check cooldown - prevent spamming
+        const now = Date.now();
+        if (now - this.shootCooldown < this.shootCooldownTime) return;
+        this.shootCooldown = now;
+
         this.game.bullets.push(new Bullet(this.x + this.width / 2, this.y, -1, false, this));
     }
 
