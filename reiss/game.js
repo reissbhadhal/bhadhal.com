@@ -391,7 +391,7 @@ class Player {
         this.invulnerable = 0;
         this.isDead = false;
         this.shootCooldown = 0; // Cooldown timer in ms
-        this.shootCooldownTime = 250; // 250ms between shots (4 shots per second max)
+        this.shootCooldownTime = 500; // 500ms between shots (2 shots per second max)
 
         if (this.game.numPlayers === 1) {
             this.x = CANVAS_WIDTH / 2 - this.width / 2;
