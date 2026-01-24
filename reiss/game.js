@@ -4,7 +4,7 @@ const CANVAS_WIDTH = 600;
 const CANVAS_HEIGHT = 800;
 const PLAYER_SPEED = 600; // px per second (was 10 per frame)
 const BULLET_SPEED = 900; // px per second (was 15 per frame)
-const ENEMY_SPEED = 60;   // px per second (was 1 per frame)
+const ENEMY_SPEED = 30;   // px per second (slower enemies)
 const ENEMY_DROP_DISTANCE = 20;
 
 const BG_GRADIENTS = [
