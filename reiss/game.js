@@ -745,11 +745,35 @@ class Game {
     }
 
     update() {
-        if (this.state !== 'PLAYING') return;
+        const now = Date.now();
+
+        if (this.state !== 'PLAYING') {
+            this.lastTime = now; // Keep clock fresh to prevent huge dt jump
+
+            // Optional: Render attract mode or background if desired
+            if (this.state === 'START' || this.state === 'GAME_OVER') {
+                // this.drawBackground(); // If we wanted to keep animating bg
+                // Draw handled in loop
+            }
+            return;
+        }
+
+        // CLAMP: Max dt = 0.05s (approx 20fps). Prevents huge jumps during lag.
+        let dt = (now - this.lastTime) / 1000;
+        this.lastTime = now;
+
+        if (isNaN(dt)) dt = 0.016; // Safety fallback
+        dt = Math.min(dt, 0.05);
+
+        // Debug Timing (Remove before final prod if spammy, but critical for diagnosis)
+        // console.log("DT:", dt.toFixed(4), "Time:", this.gameTime.toFixed(2));
+
+        // Clear canvas (Transparent to show CSS background)
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         // MULTIPLAYER SYNC
         if (this.mode === 'MULTIPLAYER') {
-            this.networkManager.update();
+            this.networkManager.update(dt);
 
             // If Guest, I ONLY update my own input (P2) locally for prediction
             // And render what Host sends.
@@ -758,31 +782,17 @@ class Game {
                 this.draw();
                 // Guest Input Logic
                 const p2 = this.players[1];
-                p2.updateInput(this.keys);
+                if (p2) p2.updateInput(this.keys, dt);
                 return; // SKIP normal game logic (physics/ai)
             }
+        } else {
+            this.networkManager.update(dt); // Keep network sync for single player (scores)
         }
 
-        if (this.state === 'GAME_OVER' || this.state === 'PAUSED') return;
-
-        const now = Date.now();
-        // CLAMP: Max dt = 0.05s (approx 20fps). Prevents huge jumps during lag.
-        let dt = (now - this.lastTime) / 1000;
-        this.lastTime = now;
-
-        if (isNaN(dt)) dt = 0.016; // Safety fallback
-        dt = Math.min(dt, 0.05);
-
-        // Clear canvas (Transparent to show CSS background)
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
         // Update logic
-        this.networkManager.update(dt); // Keep network sync
         this.updateGameLogic(dt);
 
-        this.draw();
-
-        requestAnimationFrame(this.loop);
+        // Draw handled in loop
     }
 
     updateGameLogic(dt) {
@@ -1286,7 +1296,6 @@ class Game {
 
     loop() {
         this.update();
-        this.draw();
         this.draw();
         if (this.state !== 'STOPPED') {
             this.loopId = requestAnimationFrame(this.loop);
