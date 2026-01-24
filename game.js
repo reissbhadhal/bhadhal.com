@@ -2,9 +2,9 @@
 // Constants
 const CANVAS_WIDTH = 600;
 const CANVAS_HEIGHT = 800;
-const PLAYER_SPEED = 10;
-const BULLET_SPEED = 15;
-const ENEMY_SPEED = 1;
+const PLAYER_SPEED = 600; // px per second (was 10 per frame)
+const BULLET_SPEED = 900; // px per second (was 15 per frame)
+const ENEMY_SPEED = 30;   // px per second (slower enemies)
 const ENEMY_DROP_DISTANCE = 20;
 
 const BG_GRADIENTS = [
@@ -154,17 +154,17 @@ class FloatingText {
         this.velocity = -1; // float up
     }
 
-    update() {
-        this.y += this.velocity;
-        this.life--;
+    update(dt) {
+        this.y += this.velocity * 60 * dt; // Scale velocity to time
+        this.life -= 60 * dt;
     }
 
     draw(ctx) {
         ctx.save();
         ctx.fillStyle = this.color;
         ctx.font = 'bold 16px "Orbitron"';
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 5;
+        // ctx.shadowColor = this.color; // Optimized out
+        // ctx.shadowBlur = 5;
         ctx.globalAlpha = this.life / 60;
         ctx.fillText(this.text, this.x, this.y);
         ctx.restore();
@@ -182,11 +182,11 @@ class Particle {
         this.life = 100;
     }
 
-    update() {
-        this.x += this.speedX;
-        this.y += this.speedY;
-        this.life -= 2;
-        this.size *= 0.95;
+    update(dt) {
+        this.x += this.speedX * 60 * dt;
+        this.y += this.speedY * 60 * dt;
+        this.life -= 120 * dt; // 2 per frame -> 120 per sec
+        this.size *= (1 - 1.0 * dt); // Approx decay
     }
 
     draw(ctx) {
@@ -211,17 +211,17 @@ class Bullet {
         this.color = isEnemy ? '#ff00ff' : '#00ffff';
     }
 
-    update() {
-        this.y += this.direction * BULLET_SPEED;
+    update(dt) {
+        this.y += this.direction * BULLET_SPEED * dt;
     }
 
     draw(ctx) {
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = this.color;
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        // ctx.shadowBlur = 5; // Optimized out
+        // ctx.shadowColor = this.color;
+        // ctx.fill();
+        // ctx.shadowBlur = 0;
     }
 }
 
@@ -239,19 +239,28 @@ class Enemy {
         this.color = '#39ff14';
     }
 
-    update(direction) {
-        this.x += direction * ENEMY_SPEED;
+    update(direction, dt) {
+        this.x += direction * ENEMY_SPEED * dt;
     }
 
     shoot() {
         this.game.bullets.push(new Bullet(this.x + this.width / 2, this.y + this.height, 1, true, null));
     }
 
-    draw(ctx) {
-        ctx.fillStyle = this.color;
+    static getCachedSprite(color, width, height) {
+        if (!Enemy.cache) Enemy.cache = {};
+        const key = `${color}-${width}-${height}`;
 
-        // Pixel art "invader" using 5x5 grid approx
-        const pSize = this.width / 11; // 11 pixels wide
+        if (Enemy.cache[key]) return Enemy.cache[key];
+
+        // Create new offscreen canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = color;
+        const pSize = width / 11; // 11 pixels wide
 
         const shape = [
             [2, 8],
@@ -264,16 +273,22 @@ class Enemy {
             [3, 4, 6, 7]
         ];
 
+        ctx.beginPath();
         shape.forEach((row, rowIndex) => {
             row.forEach(colIndex => {
-                ctx.fillRect(this.x + colIndex * pSize, this.y + rowIndex * pSize, pSize, pSize);
+                ctx.rect(colIndex * pSize, rowIndex * pSize, pSize, pSize);
             });
         });
+        ctx.fill();
 
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = this.color;
-        ctx.fill(); // Context fill doesn't help rects but shadow works
-        ctx.shadowBlur = 0;
+        Enemy.cache[key] = canvas;
+        return canvas;
+    }
+
+    draw(ctx) {
+        // Use cached sprite for massive performance boost
+        const sprite = Enemy.getCachedSprite(this.color, this.width, this.height);
+        ctx.drawImage(sprite, this.x, this.y);
     }
 }
 
@@ -306,13 +321,13 @@ class Boss extends Enemy {
             this.name = "THE MOTHERSHIP";
         }
         this.maxHp = this.hp;
-        this.moveSpeed = 2;
+        this.moveSpeed = 120; // 2 px/frame -> 120 px/sec
         this.direction = 1;
     }
 
-    update() {
+    update(dt) {
         // Boss sweeps back and forth
-        this.x += this.direction * this.moveSpeed;
+        this.x += this.direction * this.moveSpeed * dt;
         if (this.x <= 0 || this.x + this.width >= CANVAS_WIDTH) {
             this.direction *= -1;
         }
@@ -329,7 +344,7 @@ class Boss extends Enemy {
         const bottomY = this.y + this.height;
 
         this.game.bullets.push(new Bullet(centerX, bottomY, 1, true, null));
-        this.game.bullets.push(new Bullet(centerX - 20, bottomY, 1, true, null)); // Angled left? (Simplified to straight for now)
+        this.game.bullets.push(new Bullet(centerX - 20, bottomY, 1, true, null));
         this.game.bullets.push(new Bullet(centerX + 20, bottomY, 1, true, null));
     }
 
@@ -375,6 +390,8 @@ class Player {
         this.misses = 0;
         this.invulnerable = 0;
         this.isDead = false;
+        this.shootCooldown = 0; // Cooldown timer in ms
+        this.shootCooldownTime = 125; // 125ms between shots (8 shots per second max)
 
         if (this.game.numPlayers === 1) {
             this.x = CANVAS_WIDTH / 2 - this.width / 2;
@@ -426,22 +443,22 @@ class Player {
         this.y = CANVAS_HEIGHT - 50;
     }
 
-    updateInput(keys) {
+    updateInput(keys, dt) {
         if (this.id === 1) {
-            if (keys['ArrowLeft']) this.move(-1);
-            if (keys['ArrowRight']) this.move(1);
-            if (keys['ArrowUp']) this.moveY(-1);
-            if (keys['ArrowDown']) this.moveY(1);
+            if (keys['ArrowLeft']) this.move(-1, dt);
+            if (keys['ArrowRight']) this.move(1, dt);
+            if (keys['ArrowUp']) this.moveY(-1, dt);
+            if (keys['ArrowDown']) this.moveY(1, dt);
         } else if (this.id === 2) {
-            if (keys['KeyA']) this.move(-1);
-            if (keys['KeyD']) this.move(1);
-            if (keys['KeyW']) this.moveY(-1);
-            if (keys['KeyS']) this.moveY(1);
+            if (keys['KeyA']) this.move(-1, dt);
+            if (keys['KeyD']) this.move(1, dt);
+            if (keys['KeyW']) this.moveY(-1, dt);
+            if (keys['KeyS']) this.moveY(1, dt);
         } else if (this.id === 3) {
-            if (keys['KeyV']) this.move(-1);
-            if (keys['KeyN']) this.move(1);
-            if (keys['KeyG']) this.moveY(-1);
-            if (keys['KeyH']) this.moveY(1);
+            if (keys['KeyV']) this.move(-1, dt);
+            if (keys['KeyN']) this.move(1, dt);
+            if (keys['KeyG']) this.moveY(-1, dt);
+            if (keys['KeyH']) this.moveY(1, dt);
         }
     }
 
@@ -457,14 +474,14 @@ class Player {
         }
     }
 
-    move(dir) {
-        this.x += dir * PLAYER_SPEED;
+    move(dir, dt) {
+        this.x += dir * PLAYER_SPEED * dt;
         if (this.x < 0) this.x = 0;
         if (this.x + this.width > CANVAS_WIDTH) this.x = CANVAS_WIDTH - this.width;
     }
 
-    moveY(dir) {
-        this.y += dir * PLAYER_SPEED;
+    moveY(dir, dt) {
+        this.y += dir * PLAYER_SPEED * dt;
         // Limit vertical movement to bottom half of screen
         const minY = CANVAS_HEIGHT / 2;
         // Ensure player stays fully on screen with a buffer
@@ -474,18 +491,23 @@ class Player {
     }
 
     shoot() {
+        // Check cooldown - prevent spamming
+        const now = Date.now();
+        if (now - this.shootCooldown < this.shootCooldownTime) return;
+        this.shootCooldown = now;
+
         this.game.bullets.push(new Bullet(this.x + this.width / 2, this.y, -1, false, this));
     }
 
-    update() {
-        if (this.invulnerable > 0) this.invulnerable--;
+    update(dt) {
+        if (this.invulnerable > 0) this.invulnerable -= 60 * dt; // 1 per frame -> 60 per sec
 
         if (this.isCpu) {
-            this.aiLogic();
+            this.aiLogic(dt);
         }
     }
 
-    aiLogic() {
+    aiLogic(dt) {
         // Advanced AI: Find lowest enemy (most threatening) first
         let targetEnemy = null;
         let maxY = -Infinity;
@@ -512,13 +534,13 @@ class Player {
             const target = targetEnemy.x + targetEnemy.width / 2;
 
             // Tighter movement threshold
-            if (Math.abs(center - target) > 2) {
-                if (center < target) this.move(1);
-                else this.move(-1);
+            if (Math.abs(center - target) > 5) { // Relax threshold slightly
+                if (center < target) this.move(1, dt);
+                else this.move(-1, dt);
             }
 
             // MAX AGGRESSION
-            if (Math.abs(center - target) < 60 && Math.random() < 0.9) {
+            if (Math.abs(center - target) < 60 && Math.random() < (0.9 * 60 * dt)) { // Scale prob by dt
                 this.shoot();
             }
         }
@@ -539,10 +561,11 @@ class Player {
         ctx.fill();
 
         // Shadow/Glow
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = this.color;
+        // Shadow/Glow
+        // ctx.shadowBlur = 10; // Optimized out
+        // ctx.shadowColor = this.color;
         ctx.fill();
-        ctx.shadowBlur = 0;
+        // ctx.shadowBlur = 0;
     }
 }
 
@@ -552,6 +575,13 @@ class Player {
 
 class Game {
     constructor() {
+        // SINGLETON ENFORCEMENT
+        if (window.currentSpaceInvaders) {
+            console.warn("Stopping previous Game instance...");
+            window.currentSpaceInvaders.stop();
+        }
+        window.currentSpaceInvaders = this;
+
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.canvas.width = CANVAS_WIDTH;
@@ -581,17 +611,37 @@ class Game {
         this.enemyDirection = 1; // 1 = right, -1 = left
         this.enemyMoveTimer = 0;
         this.enemyMoveInterval = 50; // frames
+        this.lastTime = Date.now(); // FIX: Initialize lastTime to prevent NaN dt
+
 
         this.highScoreManager = new HighScoreManager();
         this.socialManager = new SocialManager(this);
         this.networkManager = new NetworkManager(this);
+
+        // Bind loop to preserve 'this' context
+        this.loop = this.loop.bind(this);
+
         this.init();
     }
 
     init() {
+        this.checkForInvite(); // Check for invite link first
         this.setupLogin();
         this.setupInput();
         this.socialManager.initUser(this.currentPlayerName);
+
+        // Start the game loop
+        this.loop();
+    }
+
+    stop() {
+        if (this.loopId) {
+            cancelAnimationFrame(this.loopId);
+            this.loopId = null;
+        }
+        // Clear listeners could be added here if we stored bound references
+        this.state = 'STOPPED';
+        console.log("Game Instance Stopped");
     }
 
     // MULTIPLAYER METHODS
@@ -616,7 +666,7 @@ class Game {
             this.bullets = [];
         }
 
-        this.loop();
+        // Loop is already running from init(), do not call it again!
     }
 
     resetPlayersMultplayer() {
@@ -630,14 +680,61 @@ class Game {
     syncFromHost(data) {
         // Update Game State from Host Data
         if (data.enemies) {
-            this.enemies = data.enemies.map(e => {
-                const enemy = new Enemy(this, e.x, e.y);
-                return enemy;
-            });
+            // OPTIMIZATION: Reuse existing enemy objects to reduce GC
+            if (this.enemies.length !== data.enemies.length) {
+                // Count mismatch? Re-sync fully (or handle additions/removals)
+                // For simplicity/robustness, if counts differ, we might need to recreate or adjust.
+                // But often in this game, enemies just die.
+                // Let's try to reuse as many as possible.
+
+                // If we have MORE enemies than data, truncate
+                if (this.enemies.length > data.enemies.length) {
+                    this.enemies.length = data.enemies.length;
+                }
+
+                // If we have FEWER, add new ones
+                while (this.enemies.length < data.enemies.length) {
+                    this.enemies.push(new Enemy(this, 0, 0));
+                }
+            }
+
+            // Now update positions
+            for (let i = 0; i < data.enemies.length; i++) {
+                const eData = data.enemies[i];
+                // Check if it should be a boss? (Simplification: assuming mostly regular enemies for now or basic reuse)
+                // If type mismatch were an issue, we'd need more data. 
+                // However, the current code just did `new Enemy`, losing Boss status if any. 
+                // So this is actually SAFER for regular enemies, but for Boss scenarios we might need `isBoss` flag in data.
+                // For now, adhere to previous behavior but optimized:
+                this.enemies[i].x = eData.x;
+                this.enemies[i].y = eData.y;
+            }
         }
+
         if (data.bullets) {
-            this.bullets = data.bullets.map(b => new Bullet(b.x, b.y, b.isEnemy ? 1 : -1, b.isEnemy, null));
+            // Bullet sync optimization
+            if (this.bullets.length !== data.bullets.length) {
+                if (this.bullets.length > data.bullets.length) {
+                    this.bullets.length = data.bullets.length;
+                }
+                while (this.bullets.length < data.bullets.length) {
+                    // Placeholder, updated immediately below
+                    this.bullets.push(new Bullet(0, 0, 0, false, null));
+                }
+            }
+
+            for (let i = 0; i < data.bullets.length; i++) {
+                const bData = data.bullets[i];
+                const b = this.bullets[i];
+                b.x = bData.x;
+                b.y = bData.y;
+                b.isEnemy = bData.isEnemy;
+                // Update color/direction properties if they changed (stateless update)
+                b.direction = bData.isEnemy ? 1 : -1;
+                b.color = bData.isEnemy ? '#ff00ff' : '#00ffff';
+            }
         }
+
         if (data.p1) {
             const p1 = this.players[0];
             p1.x = data.p1.x;
@@ -656,11 +753,35 @@ class Game {
     }
 
     update() {
-        if (this.state !== 'PLAYING') return;
+        const now = Date.now();
+
+        if (this.state !== 'PLAYING') {
+            this.lastTime = now; // Keep clock fresh to prevent huge dt jump
+
+            // Optional: Render attract mode or background if desired
+            if (this.state === 'START' || this.state === 'GAME_OVER') {
+                // this.drawBackground(); // If we wanted to keep animating bg
+                // Draw handled in loop
+            }
+            return;
+        }
+
+        // CLAMP: Max dt = 0.05s (approx 20fps). Prevents huge jumps during lag.
+        let dt = (now - this.lastTime) / 1000;
+        this.lastTime = now;
+
+        if (isNaN(dt)) dt = 0.016; // Safety fallback
+        dt = Math.min(dt, 0.05);
+
+        // Debug Timing (Remove before final prod if spammy, but critical for diagnosis)
+        // console.log("DT:", dt.toFixed(4), "Time:", this.gameTime.toFixed(2));
+
+        // Clear canvas (Transparent to show CSS background)
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         // MULTIPLAYER SYNC
         if (this.mode === 'MULTIPLAYER') {
-            this.networkManager.update();
+            this.networkManager.update(dt);
 
             // If Guest, I ONLY update my own input (P2) locally for prediction
             // And render what Host sends.
@@ -669,27 +790,17 @@ class Game {
                 this.draw();
                 // Guest Input Logic
                 const p2 = this.players[1];
-                p2.updateInput(this.keys);
+                if (p2) p2.updateInput(this.keys, dt);
                 return; // SKIP normal game logic (physics/ai)
             }
+        } else {
+            this.networkManager.update(dt); // Keep network sync for single player (scores)
         }
 
-        if (this.state === 'GAME_OVER' || this.state === 'PAUSED') return;
-
-        const now = Date.now();
-        const dt = (now - this.lastTime) / 1000;
-        this.lastTime = now;
-
-        // Clear canvas (Transparent to show CSS background)
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
         // Update logic
-        this.networkManager.update(dt); // Keep network sync
         this.updateGameLogic(dt);
 
-        this.draw();
-
-        requestAnimationFrame(this.loop);
+        // Draw handled in loop
     }
 
     updateGameLogic(dt) {
@@ -706,30 +817,42 @@ class Game {
 
         // Player Movement
         this.players.forEach(p => {
-            if (!p.isDead) p.updateInput(this.keys);
+            if (!p.isDead) p.updateInput(this.keys, dt);
         });
-        this.players.forEach(p => p.update());
+        this.players.forEach(p => p.update(dt));
 
-        // Bullets
-        this.bullets.forEach((b, i) => {
-            b.update();
+        // Bullets (Filter out-of-bounds)
+        this.bullets = this.bullets.filter(b => {
+            b.update(dt);
+            // Check bounds
             if (b.y < 0 || b.y > CANVAS_HEIGHT) {
-                // If bullet goes off screen (and is player's), count as miss
                 if (!b.isEnemy && b.owner) {
                     b.owner.misses++;
-                    if (b.y < 0) {
-                        this.floatingTexts.push(new FloatingText(b.x, 30, "MISS", "#ff0000"));
-                    }
+                    if (b.y < 0) this.floatingTexts.push(new FloatingText(b.x, 30, "MISS", "#ff0000"));
                 }
-                this.bullets.splice(i, 1);
+                return false; // Remove
             }
+            return true; // Keep
         });
 
         // Enemies
         let hitEdge = false;
         this.enemies.forEach(e => {
-            e.update(this.enemyDirection);
-            if (e.x <= 0 || e.x + e.width >= CANVAS_WIDTH) hitEdge = true;
+            if (e instanceof Boss) {
+                e.update(dt);
+                // Boss handles its own bounds
+            } else {
+                e.update(this.enemyDirection, dt);
+
+                // Only regular enemies trigger swarm edge logic
+                if (e.x <= 0 && this.enemyDirection < 0) {
+                    hitEdge = true;
+                    e.x = 0;
+                } else if (e.x + e.width >= CANVAS_WIDTH && this.enemyDirection > 0) {
+                    hitEdge = true;
+                    e.x = CANVAS_WIDTH - e.width;
+                }
+            }
         });
 
         if (hitEdge) {
@@ -737,8 +860,8 @@ class Game {
             this.enemies.forEach(e => e.y += ENEMY_DROP_DISTANCE);
         }
 
-        // Enemy Shooting
-        const shootChance = 0.002 + (this.level * 0.001);
+        // Enemy Shooting - Scale chance by dt
+        const shootChance = (0.002 + (this.level * 0.001)) * 60 * dt;
 
         if (Math.random() < shootChance && this.enemies.length > 0) {
             const shooter = this.enemies[Math.floor(Math.random() * this.enemies.length)];
@@ -746,15 +869,15 @@ class Game {
         }
 
         // Particles
-        this.particles.forEach((p, i) => {
-            p.update();
-            if (p.life <= 0) this.particles.splice(i, 1);
+        this.particles = this.particles.filter(p => {
+            p.update(dt);
+            return p.life > 0;
         });
 
         // Floating Texts
-        this.floatingTexts.forEach((t, i) => {
-            t.update();
-            if (t.life <= 0) this.floatingTexts.splice(i, 1);
+        this.floatingTexts = this.floatingTexts.filter(t => {
+            t.update(dt);
+            return t.life > 0;
         });
 
         this.checkCollisions();
@@ -784,6 +907,9 @@ class Game {
                 this.state = 'START';
                 this.loginScreen.classList.add('hidden');
                 this.startScreen.classList.remove('hidden');
+
+                // Check for pending invite after a short delay to ensure everything is loaded
+                setTimeout(() => this.joinPendingInvite(), 500);
                 return; // Skip login setup
             }
         }
@@ -808,6 +934,8 @@ class Game {
                     this.state = 'START';
                     this.loginScreen.classList.add('hidden');
                     this.startScreen.classList.remove('hidden');
+                    this.socialManager.initUser(this.currentPlayerName);
+                    this.joinPendingInvite(); // Auto-join if we have an invite
                 }, 1000);
             } else {
                 this.loginMsg.style.color = 'var(--neon-red)';
@@ -908,6 +1036,109 @@ class Game {
         this.updateHUD();
     }
 
+    invite(friendName) {
+        // Create a lobby for this friend
+        this.networkManager.createLobby(friendName);
+
+        // Generate invite link with host name
+        const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(this.currentPlayerName)}`;
+
+        // Close social overlay and show waiting message
+        this.socialManager.toggle(false);
+        this.startScreen.classList.add('hidden');
+
+        // Show waiting overlay
+        this.showWaitingScreen(friendName);
+
+        // Share the link
+        if (navigator.share) {
+            navigator.share({
+                title: "Reiss's Space Invaders",
+                text: `${this.currentPlayerName} wants to play Space Invaders with you!`,
+                url: inviteLink
+            }).catch(() => {
+                this.copyInviteLink(inviteLink, friendName);
+            });
+        } else {
+            this.copyInviteLink(inviteLink, friendName);
+        }
+    }
+
+    copyInviteLink(link, friendName) {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(link).then(() => {
+                console.log(`Invite link copied for ${friendName}`);
+            }).catch(() => { });
+        }
+        // Show the link in the waiting screen
+        const linkDisplay = document.getElementById('inviteLinkDisplay');
+        if (linkDisplay) {
+            linkDisplay.innerText = link;
+        }
+    }
+
+    showWaitingScreen(friendName) {
+        // Create waiting overlay if it doesn't exist
+        let waitingOverlay = document.getElementById('waitingOverlay');
+        if (!waitingOverlay) {
+            waitingOverlay = document.createElement('div');
+            waitingOverlay.id = 'waitingOverlay';
+            waitingOverlay.className = 'overlay';
+            waitingOverlay.innerHTML = `
+                <h1 style="font-size: 2rem; margin-bottom: 20px;">⏳ WAITING FOR PLAYER</h1>
+                <p style="color: #39ff14; font-size: 1.5rem;" id="waitingPlayer"></p>
+                <p style="margin-top: 20px;">Share this link with your friend:</p>
+                <p id="inviteLinkDisplay" style="color: #00ffff; word-break: break-all; margin: 10px; padding: 10px; background: rgba(0,0,0,0.5); border: 1px solid #00ffff;"></p>
+                <button onclick="window.game.cancelInvite()" style="margin-top: 20px; background: var(--neon-red); color: #fff; border: none; padding: 15px 30px; font-family: 'Orbitron', sans-serif; cursor: pointer;">CANCEL</button>
+            `;
+            document.querySelector('.game-container').appendChild(waitingOverlay);
+        }
+
+        document.getElementById('waitingPlayer').innerText = friendName;
+        waitingOverlay.classList.remove('hidden');
+    }
+
+    cancelInvite() {
+        // Cancel the lobby
+        if (this.networkManager.unsubscribe) {
+            this.networkManager.unsubscribe();
+        }
+        this.networkManager.lobbyId = null;
+        this.networkManager.role = null;
+
+        // Hide waiting screen
+        const waitingOverlay = document.getElementById('waitingOverlay');
+        if (waitingOverlay) {
+            waitingOverlay.classList.add('hidden');
+        }
+
+        // Show start screen
+        this.startScreen.classList.remove('hidden');
+    }
+
+    checkForInvite() {
+        // Check URL params for invite
+        const urlParams = new URLSearchParams(window.location.search);
+        const hostName = urlParams.get('invite');
+
+        if (hostName) {
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+
+            // Store invite to join after login
+            this.pendingInvite = hostName.toUpperCase();
+            console.log("Invite detected from:", this.pendingInvite);
+        }
+    }
+
+    joinPendingInvite() {
+        if (this.pendingInvite) {
+            console.log("Joining lobby:", this.pendingInvite);
+            this.networkManager.joinLobby(this.pendingInvite);
+            this.pendingInvite = null;
+        }
+    }
+
 
 
     resetGame() {
@@ -940,7 +1171,7 @@ class Game {
         } else {
             // Normal Spawn
             const rows = 5;
-            const cols = 10;
+            const cols = 15;
             const startX = 50;
             const startY = 50;
             const padding = 50;
@@ -963,7 +1194,10 @@ class Game {
 
     checkCollisions() {
         // 1. Bullets hitting Enemies or Players
-        this.bullets.forEach((b, bIndex) => {
+        // Iterate BACKWARDS to safely remove bullets/enemies
+        for (let bIndex = this.bullets.length - 1; bIndex >= 0; bIndex--) {
+            const b = this.bullets[bIndex];
+
             if (b.isEnemy) {
                 // Enemy Bullet hitting Player
                 this.players.forEach(p => {
@@ -976,17 +1210,18 @@ class Game {
                 });
             } else {
                 // Player Bullet hitting Enemy
-                this.enemies.forEach((e, eIndex) => {
+                for (let eIndex = this.enemies.length - 1; eIndex >= 0; eIndex--) {
+                    const e = this.enemies[eIndex];
                     if (this.checkRectCollision(b, e)) {
                         this.createExplosion(e.x + e.width / 2, e.y + e.height / 2, e.color || '#39ff14');
-                        this.bullets.splice(bIndex, 1);
+                        this.bullets.splice(bIndex, 1); // Bullet gone
 
                         // Boss Handling
                         if (e instanceof Boss) {
                             e.hp -= 10;
                             this.floatingTexts.push(new FloatingText(e.x + e.width / 2, e.y, "-10", "#fff"));
                             if (e.hp <= 0) {
-                                this.enemies.splice(eIndex, 1);
+                                this.enemies.splice(eIndex, 1); // Enemy gone
                                 this.createExplosion(e.x + e.width / 2, e.y + e.height / 2, e.color, 100);
                                 if (b.owner) b.owner.score += 5000;
                             }
@@ -1009,10 +1244,12 @@ class Game {
                                 this.createExplosion(revived.x + revived.width / 2, revived.y + revived.height / 2, revived.color, 30);
                             }
                         }
+
+                        break; // Bullet hit something, stop checking enemies for this bullet
                     }
-                });
+                }
             }
-        });
+        }
 
         // 2. Enemies touching Players (Kamikaze)
         this.enemies.forEach(e => {
@@ -1063,26 +1300,37 @@ class Game {
     }
 
     updateHUD() {
+        // Optimization: Only update DOM if values change
+        const currentTime = Math.ceil(this.gameTime);
+        if (this.lastRenderedTime !== currentTime) {
+            if (this.timerElement) this.timerElement.innerText = currentTime;
+            this.lastRenderedTime = currentTime;
+        }
+
         let scoreText = `LVL ${this.level}`;
+        let livesText = "";
+        let pScores = "  |  ";
 
         if (this.players.length > 0) {
-            let livesText = "";
-            let pScores = "  |  ";
-
             this.players.forEach(p => {
                 const livesDisplay = p.isDead ? "DEAD" : p.lives;
                 livesText += `P${p.id}: ${livesDisplay}  `;
                 pScores += `P${p.id}: ${p.score}  `;
             });
-            this.livesElement.innerText = livesText;
-            this.scoreElement.innerText = scoreText + pScores;
+            scoreText += pScores;
         } else {
-            this.livesElement.innerText = "DEAD";
-            this.scoreElement.innerText = scoreText + "  |  GAME OVER";
+            livesText = "DEAD";
+            scoreText += "  |  GAME OVER";
         }
 
-        if (this.timerElement) {
-            this.timerElement.innerText = Math.ceil(this.gameTime);
+        if (this.lastRenderedScore !== scoreText) {
+            this.scoreElement.innerText = scoreText;
+            this.lastRenderedScore = scoreText;
+        }
+
+        if (this.lastRenderedLives !== livesText) {
+            this.livesElement.innerText = livesText;
+            this.lastRenderedLives = livesText;
         }
     }
 
@@ -1143,7 +1391,7 @@ class Game {
         });
     }
 
-    createExplosion(x, y, color, count = 10) {
+    createExplosion(x, y, color, count = 4) { // Reduced from 10
         for (let i = 0; i < count; i++) {
             this.particles.push(new Particle(x, y, color));
         }
@@ -1165,11 +1413,25 @@ class Game {
     loop() {
         this.update();
         this.draw();
-        requestAnimationFrame(this.loop);
+        if (this.state !== 'STOPPED') {
+            this.loopId = requestAnimationFrame(this.loop);
+        }
     }
 }
 
 // Start Game
+// Start Game
 window.onload = () => {
-    window.game = new Game();
+    try {
+        console.log("Initializing Space Invaders...");
+        if (typeof Game === 'undefined') throw new Error("Game Class not defined");
+        if (typeof SocialManager === 'undefined') throw new Error("SocialManager Class not defined");
+        if (typeof NetworkManager === 'undefined') throw new Error("NetworkManager Class not defined");
+
+        window.game = new Game();
+        console.log("Game Initialized!");
+    } catch (e) {
+        console.error("CRITICAL INIT ERROR:", e);
+        alert("Space Invaders Init Error: " + e.message + "\n" + e.stack);
+    }
 };
