@@ -625,6 +625,7 @@ class Game {
     }
 
     init() {
+        this.checkForInvite(); // Check for invite link first
         this.setupLogin();
         this.setupInput();
         this.socialManager.initUser(this.currentPlayerName);
@@ -906,6 +907,9 @@ class Game {
                 this.state = 'START';
                 this.loginScreen.classList.add('hidden');
                 this.startScreen.classList.remove('hidden');
+
+                // Check for pending invite after a short delay to ensure everything is loaded
+                setTimeout(() => this.joinPendingInvite(), 500);
                 return; // Skip login setup
             }
         }
@@ -930,6 +934,8 @@ class Game {
                     this.state = 'START';
                     this.loginScreen.classList.add('hidden');
                     this.startScreen.classList.remove('hidden');
+                    this.socialManager.initUser(this.currentPlayerName);
+                    this.joinPendingInvite(); // Auto-join if we have an invite
                 }, 1000);
             } else {
                 this.loginMsg.style.color = 'var(--neon-red)';
@@ -1031,17 +1037,26 @@ class Game {
     }
 
     invite(friendName) {
-        // Generate invite link
-        const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${this.currentPlayerName}`;
+        // Create a lobby for this friend
+        this.networkManager.createLobby(friendName);
 
-        // Try to use Web Share API on mobile
+        // Generate invite link with host name
+        const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(this.currentPlayerName)}`;
+
+        // Close social overlay and show waiting message
+        this.socialManager.toggle(false);
+        this.startScreen.classList.add('hidden');
+
+        // Show waiting overlay
+        this.showWaitingScreen(friendName);
+
+        // Share the link
         if (navigator.share) {
             navigator.share({
                 title: "Reiss's Space Invaders",
-                text: `${this.currentPlayerName} wants to play Space Invaders with you, ${friendName}!`,
+                text: `${this.currentPlayerName} wants to play Space Invaders with you!`,
                 url: inviteLink
             }).catch(() => {
-                // Fallback if share fails
                 this.copyInviteLink(inviteLink, friendName);
             });
         } else {
@@ -1050,15 +1065,77 @@ class Game {
     }
 
     copyInviteLink(link, friendName) {
-        // Try to copy to clipboard
         if (navigator.clipboard) {
             navigator.clipboard.writeText(link).then(() => {
-                alert(`Invite link copied! Share it with ${friendName}:\n\n${link}`);
-            }).catch(() => {
-                alert(`Share this link with ${friendName}:\n\n${link}`);
-            });
-        } else {
-            alert(`Share this link with ${friendName}:\n\n${link}`);
+                console.log(`Invite link copied for ${friendName}`);
+            }).catch(() => { });
+        }
+        // Show the link in the waiting screen
+        const linkDisplay = document.getElementById('inviteLinkDisplay');
+        if (linkDisplay) {
+            linkDisplay.innerText = link;
+        }
+    }
+
+    showWaitingScreen(friendName) {
+        // Create waiting overlay if it doesn't exist
+        let waitingOverlay = document.getElementById('waitingOverlay');
+        if (!waitingOverlay) {
+            waitingOverlay = document.createElement('div');
+            waitingOverlay.id = 'waitingOverlay';
+            waitingOverlay.className = 'overlay';
+            waitingOverlay.innerHTML = `
+                <h1 style="font-size: 2rem; margin-bottom: 20px;">⏳ WAITING FOR PLAYER</h1>
+                <p style="color: #39ff14; font-size: 1.5rem;" id="waitingPlayer"></p>
+                <p style="margin-top: 20px;">Share this link with your friend:</p>
+                <p id="inviteLinkDisplay" style="color: #00ffff; word-break: break-all; margin: 10px; padding: 10px; background: rgba(0,0,0,0.5); border: 1px solid #00ffff;"></p>
+                <button onclick="window.game.cancelInvite()" style="margin-top: 20px; background: var(--neon-red); color: #fff; border: none; padding: 15px 30px; font-family: 'Orbitron', sans-serif; cursor: pointer;">CANCEL</button>
+            `;
+            document.querySelector('.game-container').appendChild(waitingOverlay);
+        }
+
+        document.getElementById('waitingPlayer').innerText = friendName;
+        waitingOverlay.classList.remove('hidden');
+    }
+
+    cancelInvite() {
+        // Cancel the lobby
+        if (this.networkManager.unsubscribe) {
+            this.networkManager.unsubscribe();
+        }
+        this.networkManager.lobbyId = null;
+        this.networkManager.role = null;
+
+        // Hide waiting screen
+        const waitingOverlay = document.getElementById('waitingOverlay');
+        if (waitingOverlay) {
+            waitingOverlay.classList.add('hidden');
+        }
+
+        // Show start screen
+        this.startScreen.classList.remove('hidden');
+    }
+
+    checkForInvite() {
+        // Check URL params for invite
+        const urlParams = new URLSearchParams(window.location.search);
+        const hostName = urlParams.get('invite');
+
+        if (hostName) {
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+
+            // Store invite to join after login
+            this.pendingInvite = hostName.toUpperCase();
+            console.log("Invite detected from:", this.pendingInvite);
+        }
+    }
+
+    joinPendingInvite() {
+        if (this.pendingInvite) {
+            console.log("Joining lobby:", this.pendingInvite);
+            this.networkManager.joinLobby(this.pendingInvite);
+            this.pendingInvite = null;
         }
     }
 
