@@ -1030,6 +1030,38 @@ class Game {
         this.updateHUD();
     }
 
+    invite(friendName) {
+        // Generate invite link
+        const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${this.currentPlayerName}`;
+
+        // Try to use Web Share API on mobile
+        if (navigator.share) {
+            navigator.share({
+                title: "Reiss's Space Invaders",
+                text: `${this.currentPlayerName} wants to play Space Invaders with you, ${friendName}!`,
+                url: inviteLink
+            }).catch(() => {
+                // Fallback if share fails
+                this.copyInviteLink(inviteLink, friendName);
+            });
+        } else {
+            this.copyInviteLink(inviteLink, friendName);
+        }
+    }
+
+    copyInviteLink(link, friendName) {
+        // Try to copy to clipboard
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(link).then(() => {
+                alert(`Invite link copied! Share it with ${friendName}:\n\n${link}`);
+            }).catch(() => {
+                alert(`Share this link with ${friendName}:\n\n${link}`);
+            });
+        } else {
+            alert(`Share this link with ${friendName}:\n\n${link}`);
+        }
+    }
+
 
 
     resetGame() {

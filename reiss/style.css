@@ -438,37 +438,63 @@ body {
 
     /* Make text instructions smaller on mobile to fit */
     .controls-hint {
-        font-size: 1rem;
+        font-size: 0.8rem;
         flex-direction: column;
+        gap: 5px;
     }
 
     /* Make leaderboard visible and smaller on mobile */
     .high-scores {
-        margin-top: 15px;
+        margin-top: 10px;
         width: 90%;
-        max-width: 300px;
-        padding: 10px;
-        max-height: 150px;
+        max-width: 280px;
+        padding: 8px;
+        max-height: 120px;
         overflow-y: auto;
     }
 
     .high-scores h3 {
-        font-size: 1rem;
-        margin-bottom: 10px;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
     }
 
     #scoreList li {
-        font-size: 0.85rem;
-        margin-bottom: 5px;
+        font-size: 0.75rem;
+        margin-bottom: 4px;
     }
 
+    /* Fix overlay to scroll and show all content */
     .overlay {
-        padding: 20px;
+        padding: 15px;
         overflow-y: auto;
+        justify-content: flex-start;
+        padding-top: 40px;
     }
 
     .overlay h1 {
-        font-size: 2rem;
-        margin-bottom: 15px;
+        font-size: 1.5rem;
+        margin-bottom: 10px;
+    }
+
+    /* Smaller start screen text on mobile */
+    #startScreen>div {
+        font-size: 0.9rem !important;
+    }
+
+    #startScreen p {
+        margin: 3px 0;
+    }
+
+    /* Smaller connection status */
+    #connectionStatus {
+        font-size: 0.7rem !important;
+        margin-bottom: 5px !important;
+    }
+
+    /* Smaller social button */
+    .social-btn {
+        font-size: 0.8rem;
+        padding: 8px 15px;
+        margin-bottom: 10px;
     }
 }
