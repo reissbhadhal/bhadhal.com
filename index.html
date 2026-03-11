@@ -15,8 +15,6 @@
             --bg-color: #050510;
             --reiss-blue: #00ffff;
             --reiss-dark: #004444;
-            --pro-red: #ff3300;
-            --pro-dark: #441100;
             --anaia-pink: #ff00ff;
             --anaia-dark: #440044;
             --text-color: #ffffff;
@@ -107,20 +105,7 @@
             transition: opacity 0.5s ease;
         }
 
-        /* Pro Racers Side */
-        .split.pro {
-            background: linear-gradient(135deg, #100505 0%, #2a1005 100%);
-        }
 
-        .split.pro::before {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, rgba(255, 50, 0, 0.1) 0%, transparent 70%);
-            opacity: 0.5;
-            transition: opacity 0.5s ease;
-        }
 
         /* Anaia Side */
         .split.anaia {
@@ -148,9 +133,7 @@
             box-shadow: inset 0 0 50px rgba(0, 255, 255, 0.2);
         }
 
-        .split.pro:hover {
-            box-shadow: inset 0 0 50px rgba(255, 50, 0, 0.2);
-        }
+
 
         .split.anaia:hover {
             box-shadow: inset 0 0 50px rgba(255, 0, 255, 0.2);
@@ -174,10 +157,7 @@
             text-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
         }
 
-        .split.pro h2 {
-            color: var(--pro-red);
-            text-shadow: 0 0 20px rgba(255, 50, 0, 0.6);
-        }
+
 
         .split.anaia h2 {
             color: var(--anaia-pink);
@@ -226,16 +206,7 @@
             box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
         }
 
-        .split.pro .btn {
-            color: var(--pro-red);
-            border-color: var(--pro-red);
-            box-shadow: 0 0 15px rgba(255, 50, 0, 0.2);
-        }
 
-        .split.pro:hover .btn {
-            background: rgba(255, 50, 0, 0.1);
-            box-shadow: 0 0 30px rgba(255, 50, 0, 0.4);
-        }
 
         .split.anaia .btn {
             color: var(--anaia-pink);
@@ -288,12 +259,7 @@
             <div class="btn">ENTER SECTOR</div>
         </a>
 
-        <!-- Pro Racers Section -->
-        <!-- Pro Racers Section -->
-        <a href="reiss/kart/" class="split pro">
-            <h2>PRO<br><span style="font-size: 0.6em; opacity: 0.8">RACERS</span></h2>
-            <div class="btn">START ENGINE</div>
-        </a>
+
 
         <!-- Anaia's Section -->
         <a href="/anaia/" class="split anaia">

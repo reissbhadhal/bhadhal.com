@@ -17,7 +17,10 @@ class NetworkManager {
     // --- LOBBY SYSTEM ---
 
     async createLobby(guestName) {
-        if (!this.db || !this.game.currentPlayerName) return;
+        if (!this.db || !this.game.currentPlayerName) {
+            alert("Cannot create game lobby - database not connected. Try refreshing the page.");
+            return false;
+        }
 
         this.lobbyId = this.game.currentPlayerName; // Hostname is Lobby ID
         this.role = 'HOST';
@@ -43,8 +46,15 @@ class NetworkManager {
                 });
 
             console.log("Lobby Created:", this.lobbyId);
+            return true;
         } catch (e) {
             console.error("Error creating lobby:", e);
+            alert("Failed to create game lobby. Firebase error: " + e.message + "\n\nThe database may need its security rules updated.");
+            this.lobbyId = null;
+            this.role = null;
+            // Cancel the invite UI
+            this.game.cancelInvite();
+            return false;
         }
     }
 

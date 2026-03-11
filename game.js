@@ -34,8 +34,15 @@ class HighScoreManager {
         this.loadScores();
     }
 
+    getTodayMidnightGMT() {
+        const now = new Date();
+        const todayMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+        return todayMidnight.getTime();
+    }
+
     async loadScores() {
         const statusEl = document.getElementById('connectionStatus');
+        const todayMidnight = this.getTodayMidnightGMT();
 
         if (this.useCloud) {
             try {
@@ -46,23 +53,26 @@ class HighScoreManager {
 
                 const snapshot = await window.db.collection('scores')
                     .orderBy('score', 'desc')
-                    .limit(50)
+                    .limit(100)
                     .get();
 
                 const allScores = snapshot.docs.map(doc => doc.data());
+
+                // Filter: only show scores from today (GMT midnight reset)
+                const todayScores = allScores.filter(s => s.date && s.date >= todayMidnight);
 
                 // Deduplicate: Keep only the first (highest) entry for each unique name
                 const uniqueScores = [];
                 const seen = new Set();
 
-                for (const s of allScores) {
+                for (const s of todayScores) {
                     if (!seen.has(s.name)) {
                         seen.add(s.name);
                         uniqueScores.push(s);
                     }
                 }
 
-                this.scores = uniqueScores.slice(0, 5);
+                this.scores = uniqueScores.slice(0, 10);
                 this.render();
             } catch (e) {
                 console.error("Error loading cloud scores:", e);
@@ -89,21 +99,28 @@ class HighScoreManager {
     }
 
     async saveScore(name, score) {
+        const now = Date.now();
         if (this.useCloud) {
             try {
                 const scoresRef = window.db.collection('scores');
-                const query = await scoresRef.where('name', '==', name).get();
+                const todayMidnight = this.getTodayMidnightGMT();
+
+                // Find today's entry for this user
+                const query = await scoresRef
+                    .where('name', '==', name)
+                    .where('date', '>=', todayMidnight)
+                    .get();
 
                 if (!query.empty) {
-                    // User exists, check if new score is higher
+                    // User has a score today, check if new score is higher
                     const doc = query.docs[0];
                     const data = doc.data();
                     if (score > data.score) {
-                        await scoresRef.doc(doc.id).update({ score: score, date: Date.now() });
+                        await scoresRef.doc(doc.id).update({ score: score, date: now });
                     }
                 } else {
-                    // New user
-                    await scoresRef.add({ name, score, date: Date.now() });
+                    // New entry for today
+                    await scoresRef.add({ name, score, date: now });
                 }
 
                 await this.loadScores(); // Refresh
@@ -111,18 +128,22 @@ class HighScoreManager {
                 console.error("Error saving to cloud:", e);
             }
         } else {
-            // Local fallback logic (simple)
+            // Local fallback logic - filter to today only
+            const todayMidnight = this.getTodayMidnightGMT();
+            this.scores = this.scores.filter(s => s.date && s.date >= todayMidnight);
+
             const existingIndex = this.scores.findIndex(s => s.name === name);
             if (existingIndex !== -1) {
                 if (score > this.scores[existingIndex].score) {
                     this.scores[existingIndex].score = score;
+                    this.scores[existingIndex].date = now;
                 }
             } else {
-                this.scores.push({ name, score, date: Date.now() });
+                this.scores.push({ name, score, date: now });
             }
 
             this.scores.sort((a, b) => b.score - a.score);
-            this.scores = this.scores.slice(0, 5);
+            this.scores = this.scores.slice(0, 10);
             localStorage.setItem('spaceInvadersScores', JSON.stringify(this.scores));
             this.render();
         }
@@ -222,6 +243,50 @@ class Bullet {
         // ctx.shadowColor = this.color;
         // ctx.fill();
         // ctx.shadowBlur = 0;
+    }
+}
+
+class HealthPickup {
+    constructor(x) {
+        this.x = x;
+        this.y = -20;
+        this.width = 20;
+        this.height = 20;
+        this.speed = 80; // px per second - drifts down
+        this.color = '#39ff14';
+        this.pulseTimer = 0;
+    }
+
+    update(dt) {
+        this.y += this.speed * dt;
+        this.pulseTimer += dt * 4;
+    }
+
+    draw(ctx) {
+        ctx.save();
+        const pulse = 1 + Math.sin(this.pulseTimer) * 0.15;
+        const cx = this.x + this.width / 2;
+        const cy = this.y + this.height / 2;
+        ctx.translate(cx, cy);
+        ctx.scale(pulse, pulse);
+
+        // Draw green cross / plus symbol
+        ctx.fillStyle = this.color;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 8;
+
+        // Vertical bar of cross
+        ctx.fillRect(-3, -8, 6, 16);
+        // Horizontal bar of cross
+        ctx.fillRect(-8, -3, 16, 6);
+
+        // Heart outline glow
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-10, -10, 20, 20);
+
+        ctx.shadowBlur = 0;
+        ctx.restore();
     }
 }
 
@@ -386,12 +451,11 @@ class Player {
         this.lives = 5;
         this.score = 0;
         this.hits = 0;
-        this.hits = 0;
         this.misses = 0;
         this.invulnerable = 0;
         this.isDead = false;
         this.shootCooldown = 0; // Cooldown timer in ms
-        this.shootCooldownTime = 125; // 125ms between shots (8 shots per second max)
+        this.shootCooldownTime = 1000; // 1000ms between shots (1 shot per second)
 
         if (this.game.numPlayers === 1) {
             this.x = CANVAS_WIDTH / 2 - this.width / 2;
@@ -508,42 +572,121 @@ class Player {
     }
 
     aiLogic(dt) {
-        // Advanced AI: Find lowest enemy (most threatening) first
-        let targetEnemy = null;
-        let maxY = -Infinity;
-        let minDist = Infinity;
+        const center = this.x + this.width / 2;
+        const isLevel50 = this.game.level === 50;
 
-        // Find bottom-most row first
-        this.game.enemies.forEach(e => {
-            if (e.y > maxY) {
-                maxY = e.y;
-                targetEnemy = e;
-                minDist = Math.abs((e.x + e.width / 2) - (this.x + this.width / 2));
-            } else if (e.y === maxY) {
-                // If same row, pick closest
-                const dist = Math.abs((e.x + e.width / 2) - (this.x + this.width / 2));
-                if (dist < minDist) {
-                    minDist = dist;
-                    targetEnemy = e;
+        // --- STEP 1: Dodge incoming enemy bullets ---
+        let dodgeDir = 0;
+        let closestBulletDist = Infinity;
+
+        for (const b of this.game.bullets) {
+            if (!b.isEnemy) continue;
+            // Only dodge bullets heading towards us (within our horizontal range)
+            const bulletCX = b.x + b.width / 2;
+            const horizDist = Math.abs(bulletCX - center);
+            const vertDist = this.y - b.y;
+
+            if (vertDist > 0 && vertDist < 250 && horizDist < 50) {
+                // Bullet is above us and heading down towards us
+                if (vertDist < closestBulletDist) {
+                    closestBulletDist = vertDist;
+                    // Dodge away from bullet
+                    if (bulletCX < center) {
+                        dodgeDir = 1; // Dodge right
+                    } else {
+                        dodgeDir = -1; // Dodge left
+                    }
                 }
             }
-        });
+        }
+
+        // Level 50 nerf: AI reacts slower and dodges poorly
+        const dodgeChance = isLevel50 ? 0.25 : 0.92;
+        const shouldDodge = closestBulletDist < 180 && Math.random() < dodgeChance;
+
+        if (shouldDodge && dodgeDir !== 0) {
+            this.move(dodgeDir, dt);
+            // Still try to shoot while dodging
+            if (this.game.enemies.length > 0) {
+                const nearestEnemy = this._findBestTarget();
+                if (nearestEnemy) {
+                    const targetX = nearestEnemy.x + nearestEnemy.width / 2;
+                    if (Math.abs(center - targetX) < 40) {
+                        this.shoot();
+                    }
+                }
+            }
+            return;
+        }
+
+        // --- STEP 2: Find best target ---
+        const targetEnemy = this._findBestTarget();
 
         if (targetEnemy) {
-            const center = this.x + this.width / 2;
-            const target = targetEnemy.x + targetEnemy.width / 2;
+            // Predictive aiming: lead the target based on enemy movement
+            const targetCX = targetEnemy.x + targetEnemy.width / 2;
+            const verticalDist = this.y - targetEnemy.y;
+            const bulletTravelTime = verticalDist / BULLET_SPEED;
 
-            // Tighter movement threshold
-            if (Math.abs(center - target) > 5) { // Relax threshold slightly
-                if (center < target) this.move(1, dt);
+            let predictedX = targetCX;
+            if (!(targetEnemy instanceof Boss)) {
+                // Regular enemies move with swarm direction
+                const currentSpeed = ENEMY_SPEED * (1 + this.game.level * 0.08);
+                predictedX = targetCX + this.game.enemyDirection * currentSpeed * bulletTravelTime;
+            }
+
+            // Level 50 nerf: worse aim prediction
+            if (isLevel50) {
+                predictedX += (Math.random() - 0.5) * 80;
+            }
+
+            // Move towards predicted target position
+            const aimThreshold = isLevel50 ? 30 : 8;
+            if (Math.abs(center - predictedX) > aimThreshold) {
+                if (center < predictedX) this.move(1, dt);
                 else this.move(-1, dt);
             }
 
-            // MAX AGGRESSION
-            if (Math.abs(center - target) < 60 && Math.random() < (0.9 * 60 * dt)) { // Scale prob by dt
+            // Shoot when aligned
+            const shootThreshold = isLevel50 ? 45 : 25;
+            if (Math.abs(center - predictedX) < shootThreshold) {
                 this.shoot();
             }
         }
+
+        // --- STEP 3: Vertical positioning ---
+        // Stay in a good Y position — move up/down to dodge or find better angles
+        const idealY = CANVAS_HEIGHT - 80;
+        if (shouldDodge && closestBulletDist < 120) {
+            // Emergency vertical dodge
+            this.moveY(-1, dt);
+        } else if (this.y > idealY + 20) {
+            this.moveY(-1, dt);
+        } else if (this.y < idealY - 20) {
+            this.moveY(1, dt);
+        }
+    }
+
+    _findBestTarget() {
+        let targetEnemy = null;
+        let bestScore = -Infinity;
+        const center = this.x + this.width / 2;
+
+        this.game.enemies.forEach(e => {
+            // Priority scoring: lower enemies get higher score, closer enemies also prioritized
+            const verticalScore = e.y * 2; // Strongly prefer lowest enemies
+            const horizDist = Math.abs((e.x + e.width / 2) - center);
+            const proximityScore = -horizDist * 0.5; // Prefer closer enemies horizontally
+            const bossBonus = (e instanceof Boss) ? 500 : 0; // Always prioritize bosses
+            const score = verticalScore + proximityScore + bossBonus;
+
+            if (score > bestScore) {
+                bestScore = score;
+                targetEnemy = e;
+            }
+        });
+
+        return targetEnemy;
     }
 
     draw(ctx) {
@@ -608,8 +751,11 @@ class Game {
         this.bullets = [];
         this.enemies = [];
         this.particles = [];
+        this.healthPickups = [];
         this.enemyDirection = 1; // 1 = right, -1 = left
         this.enemyMoveTimer = 0;
+        this.enemyShootTimer = 0;
+        this.enemyShootInterval = 3.0; // 3 seconds base interval
         this.enemyMoveInterval = 50; // frames
         this.lastTime = Date.now(); // FIX: Initialize lastTime to prevent NaN dt
 
@@ -847,14 +993,15 @@ class Game {
             return true; // Keep
         });
 
-        // Enemies
+        // Enemies - scale speed by level
+        const levelSpeedMultiplier = 1 + this.level * 0.08;
         let hitEdge = false;
         this.enemies.forEach(e => {
             if (e instanceof Boss) {
                 e.update(dt);
                 // Boss handles its own bounds
             } else {
-                e.update(this.enemyDirection, dt);
+                e.update(this.enemyDirection * levelSpeedMultiplier, dt);
 
                 // Only regular enemies trigger swarm edge logic
                 if (e.x <= 0 && this.enemyDirection < 0) {
@@ -872,13 +1019,40 @@ class Game {
             this.enemies.forEach(e => e.y += ENEMY_DROP_DISTANCE);
         }
 
-        // Enemy Shooting - Scale chance by dt
-        const shootChance = (0.002 + (this.level * 0.001)) * 60 * dt;
+        // Enemy Shooting - Timer-based (3 seconds, scales with level)
+        this.enemyShootTimer += dt;
+        const currentShootInterval = Math.max(1.0, this.enemyShootInterval - this.level * 0.04);
 
-        if (Math.random() < shootChance && this.enemies.length > 0) {
+        if (this.enemyShootTimer >= currentShootInterval && this.enemies.length > 0) {
+            this.enemyShootTimer = 0;
             const shooter = this.enemies[Math.floor(Math.random() * this.enemies.length)];
             shooter.shoot();
         }
+
+        // Health Pickup Spawning - roughly every 15-20 seconds
+        const healthSpawnChance = 0.015 * dt; // ~1.5% per second
+        if (Math.random() < healthSpawnChance) {
+            const pickupX = Math.random() * (CANVAS_WIDTH - 30) + 5;
+            this.healthPickups.push(new HealthPickup(pickupX));
+        }
+
+        // Update Health Pickups
+        this.healthPickups = this.healthPickups.filter(hp => {
+            hp.update(dt);
+            if (hp.y > CANVAS_HEIGHT) return false; // Off screen
+
+            // Check collision with players
+            for (const p of this.players) {
+                if (p.isDead) continue;
+                if (this.checkRectCollision(hp, p)) {
+                    p.lives += 1;
+                    this.floatingTexts.push(new FloatingText(hp.x, hp.y, "+1 LIFE", "#39ff14"));
+                    this.createExplosion(hp.x + hp.width / 2, hp.y + hp.height / 2, '#39ff14', 8);
+                    return false; // Remove pickup
+                }
+            }
+            return true;
+        });
 
         // Particles
         this.particles = this.particles.filter(p => {
@@ -898,6 +1072,8 @@ class Game {
             // Next Level
             this.level++;
             this.gameTime = 60; // Reset timer for new level
+            this.enemyShootTimer = 0; // Reset shoot timer for new level
+            this.healthPickups = []; // Clear pickups between levels
             this.spawnEntities(false); // Keep player stats
             this.updateLevelBackground();
             this.updateHUD();
@@ -1048,19 +1224,24 @@ class Game {
         this.updateHUD();
     }
 
-    invite(friendName) {
-        // Create a lobby for this friend
-        this.networkManager.createLobby(friendName);
-
-        // Generate invite link with host name
-        const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(this.currentPlayerName)}`;
-
-        // Close social overlay and show waiting message
+    async invite(friendName) {
+        // Close social overlay first
         this.socialManager.toggle(false);
         this.startScreen.classList.add('hidden');
 
-        // Show waiting overlay
+        // Show waiting overlay immediately
         this.showWaitingScreen(friendName);
+
+        // Create a lobby for this friend
+        const lobbyCreated = await this.networkManager.createLobby(friendName);
+
+        if (!lobbyCreated) {
+            // Lobby creation failed - cancelInvite is called by NetworkManager
+            return;
+        }
+
+        // Generate invite link with host name
+        const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(this.currentPlayerName)}`;
 
         // Share the link
         if (navigator.share) {
@@ -1173,6 +1354,7 @@ class Game {
         this.enemies = [];
         this.particles = [];
         this.floatingTexts = [];
+        this.healthPickups = [];
 
         // Check for Boss Spawn
         if (this.level === 15 || this.level === 30 || this.level === 45 || this.level === 50) {
@@ -1181,16 +1363,21 @@ class Game {
             const boss = new Boss(this, CANVAS_WIDTH / 2 - 50, 50, this.level); // Center Boss
             this.enemies.push(boss);
         } else {
-            // Normal Spawn
-            const rows = 5;
-            const cols = 15;
-            const startX = 50;
-            const startY = 50;
-            const padding = 50;
+            // Normal Spawn - 100 enemies (10x10 grid)
+            const rows = 10;
+            const cols = 10;
+            const enemyW = 25;
+            const padding = 55;
+            const totalWidth = cols * padding;
+            const startX = (CANVAS_WIDTH - totalWidth) / 2 + 15;
+            const startY = 30;
 
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
-                    this.enemies.push(new Enemy(this, startX + c * padding, startY + r * padding));
+                    const enemy = new Enemy(this, startX + c * padding, startY + r * 30);
+                    enemy.width = enemyW;
+                    enemy.height = 16;
+                    this.enemies.push(enemy);
                 }
             }
         }
@@ -1231,11 +1418,12 @@ class Game {
                         // Boss Handling
                         if (e instanceof Boss) {
                             e.hp -= 10;
-                            this.floatingTexts.push(new FloatingText(e.x + e.width / 2, e.y, "-10", "#fff"));
+                            if (b.owner) b.owner.score += 100; // 100 points per boss hit
+                            this.floatingTexts.push(new FloatingText(e.x + e.width / 2, e.y, "+100", "#fff"));
                             if (e.hp <= 0) {
                                 this.enemies.splice(eIndex, 1); // Enemy gone
                                 this.createExplosion(e.x + e.width / 2, e.y + e.height / 2, e.color, 100);
-                                if (b.owner) b.owner.score += 5000;
+                                if (b.owner) b.owner.score += 5000; // Boss kill bonus
                             }
                         } else {
                             // Regular Enemy
@@ -1419,6 +1607,7 @@ class Game {
             this.bullets.forEach(b => b.draw(this.ctx));
             this.particles.forEach(p => p.draw(this.ctx));
             this.floatingTexts.forEach(t => t.draw(this.ctx));
+            if (this.healthPickups) this.healthPickups.forEach(hp => hp.draw(this.ctx));
         }
     }
 
