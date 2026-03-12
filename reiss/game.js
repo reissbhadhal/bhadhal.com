@@ -781,7 +781,7 @@ class Game {
 
         // Reset Game
         this.level = 1;
-        this.gameTime = 180;
+        this.gameTime = 120;
         this.lastTime = Date.now();
         this.resetPlayersMultplayer();
 
@@ -1050,7 +1050,7 @@ class Game {
         if (this.enemies.length === 0) {
             // Next Level
             this.level++;
-            this.gameTime = 180; // Reset timer for new level
+            this.gameTime = 120; // Reset timer for new level
             this.enemyShootTimer = 0; // Reset shoot timer for new level
             this.healthPickups = []; // Clear pickups between levels
             this.spawnEntities(false); // Keep player stats
@@ -1196,7 +1196,7 @@ class Game {
         this.startScreen.classList.add('hidden');
         this.gameOverScreen.classList.add('hidden');
         this.level = 1;
-        this.gameTime = 180;
+        this.gameTime = 120;
         this.lastTime = performance.now();
         this.spawnEntities(true);
         this.updateLevelBackground();
