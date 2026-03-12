@@ -449,7 +449,7 @@ class Player {
         this.invulnerable = 0;
         this.isDead = false;
         this.shootCooldown = 0; // Cooldown timer in ms
-        this.shootCooldownTime = 1000; // 1000ms between shots (1 shot per second)
+        this.shootCooldownTime = 2000; // 2000ms between shots (1 shot per 2 seconds)
 
         if (this.game.numPlayers === 1) {
             this.x = CANVAS_WIDTH / 2 - this.width / 2;
@@ -956,7 +956,7 @@ class Game {
         this.bullets.length = writeIdx;
 
         // Enemies — scale speed by level (capped at 3x to prevent teleporting)
-        const levelSpeedMultiplier = Math.min(1 + this.level * 0.08, 3.0);
+        const levelSpeedMultiplier = Math.min(1 + this.level * 0.08, 5.0);
         let hitEdge = false;
         const dirMult = this.enemyDirection * levelSpeedMultiplier;
         // Drop cooldown — prevent rapid edge-bouncing from cascading enemies to the bottom
@@ -985,7 +985,7 @@ class Game {
                 for (let i = 0, len = this.enemies.length; i < len; i++) {
                     this.enemies[i].y += ENEMY_DROP_DISTANCE;
                 }
-                this.dropCooldown = 0.5; // 0.5s between drops
+                this.dropCooldown = 2.0; // 2s between drops
             }
         }
 
